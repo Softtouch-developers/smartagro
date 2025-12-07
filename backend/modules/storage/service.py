@@ -1,0 +1,269 @@
+"""
+Storage service - supports both local filesystem and DO Spaces
+"""
+from fastapi import UploadFile, HTTPException
+from PIL import Image
+from io import BytesIO
+import os
+import uuid
+import boto3
+from config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class StorageService:
+    """
+    Unified storage service
+    Automatically uses local filesystem or DO Spaces based on config
+    """
+    
+    def __init__(self):
+        self.storage_type = settings.STORAGE_TYPE
+        
+        if self.storage_type == "local":
+            # Create uploads directory if it doesn't exist
+            self.base_path = settings.LOCAL_STORAGE_PATH
+            os.makedirs(self.base_path, exist_ok=True)
+            os.makedirs(f"{self.base_path}/products", exist_ok=True)
+            os.makedirs(f"{self.base_path}/chat", exist_ok=True)
+            os.makedirs(f"{self.base_path}/voice", exist_ok=True)
+            logger.info(f"✅ Using LOCAL storage: {self.base_path}")
+        
+        elif self.storage_type == "spaces":
+            # Initialize DO Spaces client
+            self.s3_client = boto3.client(
+                's3',
+                region_name=settings.SPACES_REGION,
+                endpoint_url=settings.SPACES_ENDPOINT,
+                aws_access_key_id=settings.SPACES_ACCESS_KEY,
+                aws_secret_access_key=settings.SPACES_SECRET_KEY
+            )
+            self.bucket = settings.SPACES_BUCKET
+            logger.info(f"✅ Using DO Spaces: {self.bucket}")
+        
+        else:
+            raise ValueError(f"Invalid STORAGE_TYPE: {self.storage_type}")
+    
+    
+    async def upload_image(
+        self,
+        file: UploadFile,
+        folder: str = "products",
+        optimize: bool = True
+    ) -> str:
+        """
+        Upload image to storage
+        
+        Args:
+            file: Uploaded file
+            folder: Subfolder (products, chat, etc.)
+            optimize: Whether to optimize image
+            
+        Returns:
+            URL to access the image
+        """
+        # Validate file type
+        if file.content_type not in ['image/jpeg', 'image/png', 'image/jpg']:
+            raise HTTPException(400, "Invalid image type. Use JPEG or PNG.")
+        
+        # Read and optimize image
+        contents = await file.read()
+        
+        if optimize:
+            contents = self._optimize_image(contents)
+        
+        # Generate unique filename
+        filename = f"{uuid.uuid4()}.jpg"
+        file_path = f"{folder}/{filename}"
+        
+        # Upload based on storage type
+        if self.storage_type == "local":
+            return self._save_local(contents, file_path)
+        else:
+            return self._save_spaces(contents, file_path)
+    
+    
+    def _optimize_image(self, image_bytes: bytes) -> bytes:
+        """Optimize image (resize, compress)"""
+        try:
+            image = Image.open(BytesIO(image_bytes))
+            
+            # Resize if too large
+            max_size = (1200, 1200)
+            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+            
+            # Convert to RGB if needed
+            if image.mode in ('RGBA', 'P'):
+                image = image.convert('RGB')
+            
+            # Save optimized
+            output = BytesIO()
+            image.save(output, format='JPEG', quality=85, optimize=True)
+            output.seek(0)
+            
+            return output.read()
+        
+        except Exception as e:
+            logger.error(f"Image optimization failed: {e}")
+            return image_bytes  # Return original if optimization fails
+    
+    
+    def _save_local(self, contents: bytes, file_path: str) -> str:
+        """Save file to local filesystem"""
+        full_path = os.path.join(self.base_path, file_path)
+        
+        # Create directory if needed
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        
+        # Write file
+        with open(full_path, 'wb') as f:
+            f.write(contents)
+        
+        # Return URL (served by FastAPI static files)
+        return f"/uploads/{file_path}"
+    
+    
+    def _save_spaces(self, contents: bytes, file_path: str) -> str:
+        """Save file to DO Spaces"""
+        try:
+            self.s3_client.put_object(
+                Bucket=self.bucket,
+                Key=file_path,
+                Body=contents,
+                ACL='public-read',
+                ContentType='image/jpeg',
+                CacheControl='max-age=31536000'
+            )
+            
+            # Return CDN URL
+            cdn_url = settings.SPACES_CDN_URL or settings.SPACES_ENDPOINT
+            return f"{cdn_url}/{file_path}"
+        
+        except Exception as e:
+            logger.error(f"DO Spaces upload failed: {e}")
+            raise HTTPException(500, "File upload failed")
+    
+    
+    async def upload_voice_note(self, file: UploadFile) -> str:
+        """Upload voice note"""
+        if file.content_type not in ['audio/mpeg', 'audio/mp3', 'audio/wav']:
+            raise HTTPException(400, "Invalid audio type")
+
+        contents = await file.read()
+        filename = f"{uuid.uuid4()}.mp3"
+        file_path = f"voice/{filename}"
+
+        if self.storage_type == "local":
+            return self._save_local(contents, file_path)
+        else:
+            return self._save_spaces(contents, file_path)
+
+
+    async def upload_file(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        content_type: str,
+        folder: str = "uploads"
+    ) -> dict:
+        """
+        Generic file upload method
+
+        Args:
+            file_bytes: File contents as bytes
+            filename: Original filename
+            content_type: MIME type
+            folder: Destination folder
+
+        Returns:
+            Dict with url and metadata
+        """
+        # Generate unique filename preserving extension
+        ext = os.path.splitext(filename)[1] or self._get_extension(content_type)
+        unique_filename = f"{uuid.uuid4()}{ext}"
+        file_path = f"{folder}/{unique_filename}"
+
+        # Create folder if local storage
+        if self.storage_type == "local":
+            folder_path = os.path.join(self.base_path, folder)
+            os.makedirs(folder_path, exist_ok=True)
+            url = self._save_local(file_bytes, file_path)
+        else:
+            url = self._save_spaces_generic(file_bytes, file_path, content_type)
+
+        return {
+            "url": url,
+            "filename": unique_filename,
+            "original_filename": filename,
+            "content_type": content_type,
+            "size": len(file_bytes),
+            "folder": folder
+        }
+
+
+    def _get_extension(self, content_type: str) -> str:
+        """Get file extension from content type"""
+        extensions = {
+            "image/jpeg": ".jpg",
+            "image/png": ".png",
+            "image/webp": ".webp",
+            "image/gif": ".gif",
+            "audio/mpeg": ".mp3",
+            "audio/wav": ".wav",
+            "audio/ogg": ".ogg",
+            "audio/webm": ".webm",
+            "video/mp4": ".mp4",
+            "video/webm": ".webm",
+            "video/quicktime": ".mov",
+            "application/pdf": ".pdf",
+            "text/plain": ".txt"
+        }
+        return extensions.get(content_type, "")
+
+
+    def _save_spaces_generic(self, contents: bytes, file_path: str, content_type: str) -> str:
+        """Save any file to DO Spaces with correct content type"""
+        try:
+            self.s3_client.put_object(
+                Bucket=self.bucket,
+                Key=file_path,
+                Body=contents,
+                ACL='public-read',
+                ContentType=content_type,
+                CacheControl='max-age=31536000'
+            )
+
+            # Return CDN URL
+            cdn_url = settings.SPACES_CDN_URL or settings.SPACES_ENDPOINT
+            return f"{cdn_url}/{file_path}"
+
+        except Exception as e:
+            logger.error(f"DO Spaces upload failed: {e}")
+            raise HTTPException(500, "File upload failed")
+    
+    
+    def delete_file(self, file_url: str):
+        """Delete file from storage"""
+        if self.storage_type == "local":
+            # Extract path from URL
+            file_path = file_url.replace("/uploads/", "")
+            full_path = os.path.join(self.base_path, file_path)
+            
+            if os.path.exists(full_path):
+                os.remove(full_path)
+        
+        else:
+            # Extract key from URL
+            key = file_url.split('/')[-2:]  # Get last 2 parts (folder/filename)
+            key = '/'.join(key)
+            
+            self.s3_client.delete_object(
+                Bucket=self.bucket,
+                Key=key
+            )
+
+
+# Singleton instance
+storage_service = StorageService()
