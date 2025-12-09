@@ -9,7 +9,8 @@
 title Component Diagram - FastAPI Backend
 
 Container_Boundary(api, "FastAPI Application") {
-    Component(auth, "Authentication", "JWT Module", "Login, signup, OTP, token management")
+    Component(auth, "Authentication", "JWT Module", "Login, signup, OTP, token management, mode switching")
+    Component(cart, "Cart Service", "Shopping Cart Module", "Multi-item cart with 8h expiry")
     Component(marketplace, "Marketplace", "Product/Order Module", "Product listings, order management")
     Component(escrow, "Escrow Service", "Payment Module", "Manages fund holding and release")
     Component(chat, "Chat Service", "Messaging Module", "Buyer-seller messaging")
@@ -35,8 +36,13 @@ Rel(auth, postgres, "Users, OTPs, sessions")
 Rel(auth, redis, "JWT token blacklist")
 Rel(auth, mnotify, "OTP SMS")
 
+' Cart connections
+Rel(cart, postgres, "Carts, cart_items")
+Rel(cart, marketplace, "Product validation, checkout to orders")
+Rel(cart, notification, "Cart expiry alerts")
+
 ' Marketplace connections
-Rel(marketplace, postgres, "Products, orders")
+Rel(marketplace, postgres, "Products, orders, order_items")
 Rel(marketplace, mongo, "Product details")
 Rel(marketplace, redis, "Cache listings")
 Rel(marketplace, notification, "Order alerts")
@@ -122,6 +128,20 @@ package "Module: Admin" #LightCoral {
     end note
 }
 
+package "Module: Cart" #Wheat {
+    [cart/routes.py] as CartRoutes
+    [cart/service.py] as CartService
+    [cart/schemas.py] as CartSchemas
+    note right of CartRoutes
+        - Add to cart
+        - Update quantity
+        - Remove items
+        - Checkout (creates order)
+        - 8h expiration
+        - Single farmer per cart
+    end note
+}
+
 package "Module: Marketplace" #LightGreen {
     [products/routes.py] as ProductRoutes
     [orders/routes.py] as OrderRoutes
@@ -160,12 +180,17 @@ package "Data Layer" {
 ' Main connections
 Main --> Middleware
 Main --> AuthRoutes
+Main --> CartRoutes
 Main --> AgentRoutes
 Main --> AdminRoutes
 Main --> ProductRoutes
 Main --> OrderRoutes
 Main --> EscrowRoutes
 Main --> ChatRoutes
+
+' Cart connections
+CartRoutes --> CartService
+CartService --> OrderService : checkout
 
 ' Agent internal connections
 AgentRoutes --> AgentService
@@ -268,6 +293,7 @@ package "Middleware" {
 package "Modules" {
     [auth/]
     [users/]
+    [cart/]
     [products/]
     [orders/]
     [escrow/]
@@ -312,8 +338,9 @@ package "Integrations" {
 
 | Prefix | Module | Description |
 |--------|--------|-------------|
-| `/auth` | auth | Authentication (login, signup, OTP) |
+| `/auth` | auth | Authentication (login, signup, OTP, mode switching) |
 | `/api/v1/users` | users | User profile management |
+| `/api/v1/cart` | cart | Shopping cart (add, update, remove, checkout) |
 | `/api/v1/products` | products | Product CRUD |
 | `/api/v1/orders` | orders | Order management |
 | `/api/v1/escrow` | escrow | Payment & escrow |
@@ -325,6 +352,13 @@ package "Integrations" {
 | `/webhooks` | integrations | External webhooks |
 
 ## Key Files per Module
+
+### Cart Module (`modules/cart/`)
+| File | Purpose |
+|------|---------|
+| `routes.py` | API endpoints (add, update, remove, checkout) |
+| `service.py` | Cart management, checkout logic, stock validation |
+| `schemas.py` | Request/response models |
 
 ### Agent Module (`modules/agent/`)
 | File | Purpose |
