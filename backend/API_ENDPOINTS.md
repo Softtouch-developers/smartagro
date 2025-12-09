@@ -8,14 +8,19 @@ Used for user registration, login, and security.
 
 ```
 POST   /auth/signup             # Register a new user (Farmer or Buyer)
+                                 # Email optional for farmers, required for buyers
+                                 # Region and town_city required for farmers
 POST   /auth/verify-otp         # Verify phone number after signup
 POST   /auth/resend-otp         # Resend verification OTP
-POST   /auth/login              # Login with email and password
+POST   /auth/login              # Login with email/phone and password
+                                 # Supports both email and phone_number login
 POST   /auth/refresh            # Refresh access token
 POST   /auth/logout             # Logout current user
 POST   /auth/forgot-password    # Initiate password reset
 POST   /auth/reset-password     # Complete password reset with OTP
 GET    /auth/me                 # Get current authenticated user info
+POST   /auth/switch-mode        # Switch between FARMER and BUYER mode
+GET    /auth/current-mode       # Get current user's active mode
 ```
 
 ## Users (`/api/v1/users`)
@@ -42,13 +47,62 @@ PUT    /api/v1/products/{id}        # Update a product (Owner only)
 DELETE /api/v1/products/{id}        # Delete a product (Owner only)
 ```
 
+## Shopping Cart (`/api/v1/cart`)
+Manage shopping cart for multi-item purchases from a single farmer.
+
+```
+GET    /api/v1/cart                 # Get active cart with items and totals
+                                     # Returns cart details, expiry time, fee breakdown
+POST   /api/v1/cart/items           # Add product to cart
+                                     # Creates new cart if needed
+                                     # Can only add items from same farmer
+                                     # Refreshes 8-hour expiry timer
+PUT    /api/v1/cart/items/{id}      # Update cart item quantity
+                                     # Validates stock availability
+DELETE /api/v1/cart/items/{id}      # Remove item from cart
+DELETE /api/v1/cart                 # Clear entire cart
+POST   /api/v1/cart/checkout        # Checkout cart and create order
+                                     # Validates stock for all items
+                                     # Creates order with order_items
+                                     # Reserves stock (reduces quantity_available)
+                                     # If no email on file, use checkout_email
+```
+
+**Cart Rules:**
+- Cart expires after 8 hours of inactivity
+- Can only contain products from a single farmer
+- To buy from different farmer, must clear/checkout current cart
+- Background job runs hourly to expire old carts
+
+**Add to Cart Request:**
+```json
+{
+  "product_id": 123,
+  "quantity": 5.0
+}
+```
+
+**Checkout Request:**
+```json
+{
+  "delivery_method": "DELIVERY",        // DELIVERY or PICKUP
+  "delivery_address": "123 Main St",
+  "delivery_region": "Greater Accra",
+  "delivery_district": "Accra Metropolitan",
+  "delivery_phone": "+233241234567",
+  "delivery_notes": "Call before delivery",
+  "checkout_email": "buyer@email.com"   // Optional, required if user has no email
+}
+```
+
 ## Orders (`/api/v1/orders`)
 Order processing and tracking.
 
 ```
-POST   /api/v1/orders               # Create a new order (Buyers only)
+POST   /api/v1/orders               # Create a new order (Buyers only) - DEPRECATED
+                                     # Use cart checkout for multi-item orders
 GET    /api/v1/orders               # List my orders (as Buyer or Seller)
-GET    /api/v1/orders/{id}          # Get order details
+GET    /api/v1/orders/{id}          # Get order details (includes order_items)
 PUT    /api/v1/orders/{id}/ship     # Mark order as shipped (Sellers only)
 PUT    /api/v1/orders/{id}/deliver  # Confirm delivery (Buyers only)
 PUT    /api/v1/orders/{id}/cancel   # Cancel unpaid order
