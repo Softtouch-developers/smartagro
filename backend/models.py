@@ -70,6 +70,17 @@ class OrderStatus(enum.Enum):
     DISPUTED = "DISPUTED"
     REFUNDED = "REFUNDED"
 
+class PaymentStatus(enum.Enum):
+    PENDING = "PENDING"
+    INITIATED = "INITIATED"
+    PAID = "PAID"
+    FAILED = "FAILED"
+    REFUNDED = "REFUNDED"
+
+class DeliveryMethod(enum.Enum):
+    DELIVERY = "DELIVERY"
+    PICKUP = "PICKUP"
+
 class EscrowStatus(enum.Enum):
     PENDING = "PENDING"
     PAYMENT_INITIATED = "PAYMENT_INITIATED"
@@ -129,7 +140,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Authentication & Contact
-    email = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=True, index=True)  # Optional for farmers
     phone_number = Column(String(20), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     
@@ -171,6 +182,10 @@ class User(Base):
     language_preference = Column(String(10), default='en', nullable=False)  # 'en', 'tw' (Twi)
     notification_enabled = Column(Boolean, default=True, nullable=False)
     sms_notification_enabled = Column(Boolean, default=True, nullable=False)
+
+    # Role Switching (Farmers can also act as buyers)
+    can_buy = Column(Boolean, default=True, nullable=False)  # All users can buy by default
+    current_mode = Column(String(10), nullable=True)  # 'FARMER' or 'BUYER' - active mode for UI
     
     # Farmer-specific fields
     farm_name = Column(String(255), nullable=True)
@@ -306,13 +321,14 @@ class Product(Base):
 
 class Order(Base):
     __tablename__ = "orders"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    
+    order_number = Column(String(50), unique=True, nullable=False, index=True)  # e.g., ORD-1234567890-ABC123
+
     # Parties involved
     buyer_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     seller_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey('products.id', ondelete='SET NULL'), nullable=True, index=True)
+    product_id = Column(Integer, ForeignKey('products.id', ondelete='SET NULL'), nullable=True, index=True)  # Nullable for multi-item orders
     
     # Order Details
     quantity_ordered = Column(DECIMAL(10, 2), nullable=False)
@@ -323,6 +339,7 @@ class Order(Base):
     total_amount = Column(DECIMAL(10, 2), nullable=False)
     
     # Delivery Information
+    delivery_method = Column(SQLEnum(DeliveryMethod), default=DeliveryMethod.DELIVERY, nullable=False)
     delivery_address = Column(Text, nullable=False)
     delivery_region = Column(String(50), nullable=True)
     delivery_district = Column(String(100), nullable=True)
@@ -338,13 +355,16 @@ class Order(Base):
     
     # Tracking & Notes
     tracking_number = Column(String(100), nullable=True)
+    carrier = Column(String(100), nullable=True)  # Delivery carrier/logistics provider
+    delivery_confirmation_code = Column(String(20), nullable=True)  # Code buyer uses to confirm delivery
     tracking_notes = Column(Text, nullable=True)
     buyer_notes = Column(Text, nullable=True)
     seller_notes = Column(Text, nullable=True)
     
     # Status
     status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False, index=True)
-    
+    payment_status = Column(SQLEnum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False, index=True)
+
     # Payment Reference
     payment_reference = Column(String(255), unique=True, nullable=True)
     payment_method = Column(String(50), default='PAYSTACK', nullable=False)
@@ -364,7 +384,8 @@ class Order(Base):
     seller = relationship("User", back_populates="orders_as_seller", foreign_keys=[seller_id])
     product = relationship("Product", back_populates="orders")
     escrow = relationship("EscrowTransaction", back_populates="order", uselist=False)
-    
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")  # Multi-item orders
+
     # Indexes
     __table_args__ = (
         Index('idx_order_buyer_status', 'buyer_id', 'status'),
@@ -426,6 +447,91 @@ class EscrowTransaction(Base):
         Index('idx_escrow_auto_release', 'auto_release_date', 'status'),
         Index('idx_escrow_buyer', 'buyer_id', 'status'),
         Index('idx_escrow_seller', 'seller_id', 'status'),
+    )
+
+
+class OrderItem(Base):
+    """Individual items within an order (for multi-product cart checkout)"""
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey('orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey('products.id', ondelete='SET NULL'), nullable=True, index=True)
+
+    # Order item details
+    quantity = Column(DECIMAL(10, 2), nullable=False)
+    unit_price = Column(DECIMAL(10, 2), nullable=False)  # Price at time of order
+    subtotal = Column(DECIMAL(10, 2), nullable=False)
+
+    # Snapshot of product details at order time (in case product changes/deleted)
+    product_name_snapshot = Column(String(255), nullable=False)
+    unit_of_measure_snapshot = Column(String(20), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    order = relationship("Order", back_populates="items")
+    product = relationship("Product")
+
+    __table_args__ = (
+        Index('idx_order_item_order', 'order_id'),
+        Index('idx_order_item_product', 'product_id'),
+    )
+
+
+class Cart(Base):
+    """Shopping cart - one active cart per buyer, single farmer constraint"""
+    __tablename__ = "carts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    buyer_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    farmer_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # Cart status: ACTIVE, CHECKED_OUT, EXPIRED, ABANDONED
+    status = Column(String(20), default="ACTIVE", nullable=False, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)  # 8 hours from creation/last update
+
+    # Relationships
+    buyer = relationship("User", foreign_keys=[buyer_id])
+    farmer = relationship("User", foreign_keys=[farmer_id])
+    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index('idx_cart_buyer_status', 'buyer_id', 'status'),
+        Index('idx_cart_expires', 'expires_at', 'status'),
+    )
+
+
+class CartItem(Base):
+    """Individual items in a shopping cart"""
+    __tablename__ = "cart_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cart_id = Column(Integer, ForeignKey('carts.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey('products.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # Item details
+    quantity = Column(DECIMAL(10, 2), nullable=False)
+    unit_price_snapshot = Column(DECIMAL(10, 2), nullable=False)  # Price at time of adding to cart
+
+    # Timestamps
+    added_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    cart = relationship("Cart", back_populates="items")
+    product = relationship("Product")
+
+    __table_args__ = (
+        Index('idx_cart_item_cart', 'cart_id'),
+        Index('idx_cart_item_product', 'product_id'),
+        # Unique constraint: one product per cart (update quantity instead of duplicate)
+        Index('uq_cart_product', 'cart_id', 'product_id', unique=True),
     )
 
 
