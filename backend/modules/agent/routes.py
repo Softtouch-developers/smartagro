@@ -17,8 +17,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database import get_db
-from middleware.auth import get_current_user, require_role
-from models import User, UserRole
+from modules.auth.dependencies import get_current_user, get_current_admin
+from models import User, UserType
 from modules.agent.service import (
     FarmingAgent,
     ConversationManager,
@@ -431,9 +431,10 @@ async def delete_session(
 
 # ==================== KNOWLEDGE BASE ENDPOINTS (Admin) ====================
 
-@router.post("/knowledge/index", dependencies=[Depends(require_role(UserRole.ADMIN))])
+@router.post("/knowledge/index")
 async def index_knowledge_base(
     request: KnowledgeIndexRequest,
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -457,10 +458,11 @@ async def index_knowledge_base(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/knowledge/documents", dependencies=[Depends(require_role(UserRole.ADMIN))])
+@router.get("/knowledge/documents")
 async def list_knowledge_documents(
     document_type: Optional[str] = None,
-    limit: int = Query(50, ge=1, le=200)
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_admin)
 ):
     """List all knowledge documents (Admin only)"""
     docs = KnowledgeService.get_all_documents(document_type, limit=limit)
@@ -471,8 +473,11 @@ async def list_knowledge_documents(
     }
 
 
-@router.get("/knowledge/documents/{document_id}", dependencies=[Depends(require_role(UserRole.ADMIN))])
-async def get_knowledge_document(document_id: str):
+@router.get("/knowledge/documents/{document_id}")
+async def get_knowledge_document(
+    document_id: str,
+    current_user: User = Depends(get_current_admin)
+):
     """Get a specific knowledge document (Admin only)"""
     doc = KnowledgeService.get_document_by_id(document_id)
 
