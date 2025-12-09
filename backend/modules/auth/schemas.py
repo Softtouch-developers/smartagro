@@ -12,13 +12,13 @@ from models import UserType
 
 class SignupRequest(BaseModel):
     """User signup request"""
-    email: EmailStr
+    email: Optional[EmailStr] = None  # Optional for farmers, required for buyers
     phone_number: str = Field(..., min_length=10, max_length=20)
     full_name: str = Field(..., min_length=2, max_length=255)
     password: str = Field(..., min_length=8, max_length=100)
     user_type: UserType
 
-    # Optional fields
+    # Location fields - required for farmers
     region: Optional[str] = None
     district: Optional[str] = None
     town_city: Optional[str] = None
@@ -61,6 +61,30 @@ class SignupRequest(BaseModel):
 
         return cleaned
 
+    @validator('email', always=True)
+    def email_required_for_buyers(cls, v, values):
+        """Email is required for buyers, optional for farmers"""
+        user_type = values.get('user_type')
+        if user_type == UserType.BUYER and not v:
+            raise ValueError('Email is required for buyers')
+        return v
+
+    @validator('region', always=True)
+    def region_required_for_farmers(cls, v, values):
+        """Region is required for farmers"""
+        user_type = values.get('user_type')
+        if user_type == UserType.FARMER and not v:
+            raise ValueError('Region is required for farmers')
+        return v
+
+    @validator('town_city', always=True)
+    def town_required_for_farmers(cls, v, values):
+        """Town/City is required for farmers"""
+        user_type = values.get('user_type')
+        if user_type == UserType.FARMER and not v:
+            raise ValueError('Town/City is required for farmers')
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -70,7 +94,7 @@ class SignupRequest(BaseModel):
                 "password": "SecurePass123!",
                 "user_type": "FARMER",
                 "region": "Ashanti",
-                "district": "Kumasi",
+                "district": "Kumasi Metropolitan",
                 "town_city": "Kumasi",
                 "farm_name": "Asante Farms",
                 "farm_size_acres": 5.5
@@ -109,9 +133,18 @@ class ResendOTPRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    """User login request"""
-    email: EmailStr
+    """User login request - supports email or phone number"""
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
     password: str
+
+    @validator('phone_number', always=True)
+    def validate_login_identifier(cls, v, values):
+        """Ensure either email or phone is provided"""
+        email = values.get('email')
+        if not email and not v:
+            raise ValueError('Either email or phone_number is required')
+        return v
 
     class Config:
         json_schema_extra = {
@@ -180,7 +213,7 @@ class ResetPasswordRequest(BaseModel):
 class UserResponse(BaseModel):
     """User data response"""
     id: int
-    email: str
+    email: Optional[str] = None  # Optional for farmers
     phone_number: str
     full_name: str
     user_type: str
@@ -200,6 +233,10 @@ class UserResponse(BaseModel):
     # Account status
     account_status: str
     is_active: bool
+
+    # Role switching
+    can_buy: bool = True
+    current_mode: Optional[str] = None  # 'FARMER' or 'BUYER'
 
     # Farmer-specific
     farm_name: Optional[str] = None
@@ -233,7 +270,7 @@ class SignupResponse(BaseModel):
     success: bool
     message: str
     user_id: int
-    email: str
+    email: Optional[str] = None  # Optional for farmers
     phone_number: str
     verification_required: bool = True
 

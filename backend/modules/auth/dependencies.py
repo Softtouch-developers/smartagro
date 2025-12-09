@@ -129,7 +129,7 @@ async def get_current_farmer(
     current_user: User = Depends(get_current_verified_user)
 ) -> User:
     """
-    Get current authenticated farmer
+    Get current authenticated farmer in farmer mode
 
     Args:
         current_user: Current verified user
@@ -138,7 +138,7 @@ async def get_current_farmer(
         User object
 
     Raises:
-        HTTPException: If user is not a farmer
+        HTTPException: If user is not a farmer or is in buyer mode
     """
     if current_user.user_type != UserType.FARMER:
         raise HTTPException(
@@ -149,6 +149,16 @@ async def get_current_farmer(
             }
         )
 
+    # Check if farmer is in buyer mode (should switch back to farmer mode)
+    if current_user.current_mode == "BUYER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "WRONG_MODE",
+                "message": "You are in buyer mode. Switch to farmer mode to manage products."
+            }
+        )
+
     return current_user
 
 
@@ -156,7 +166,7 @@ async def get_current_buyer(
     current_user: User = Depends(get_current_verified_user)
 ) -> User:
     """
-    Get current authenticated buyer
+    Get current user who can act as a buyer (either a buyer or farmer in buyer mode)
 
     Args:
         current_user: Current verified user
@@ -165,18 +175,33 @@ async def get_current_buyer(
         User object
 
     Raises:
-        HTTPException: If user is not a buyer
+        HTTPException: If user cannot buy (not a buyer and not a farmer with can_buy=True)
     """
-    if current_user.user_type != UserType.BUYER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "FORBIDDEN",
-                "message": "This endpoint is only accessible to buyers"
-            }
-        )
+    # Buyers can always buy
+    if current_user.user_type == UserType.BUYER:
+        return current_user
 
-    return current_user
+    # Farmers can buy if can_buy is True and they're in buyer mode (or any mode)
+    if current_user.user_type == UserType.FARMER:
+        if not current_user.can_buy:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "BUYING_DISABLED",
+                    "message": "Buying is disabled for your account"
+                }
+            )
+        # Farmer can buy - no mode restriction for buying
+        return current_user
+
+    # Admins and other types cannot buy
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "FORBIDDEN",
+            "message": "This endpoint is only accessible to buyers"
+        }
+    )
 
 
 async def get_current_admin(

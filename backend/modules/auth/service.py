@@ -23,7 +23,7 @@ class AuthService:
     @staticmethod
     async def signup_user(
         db: Session,
-        email: str,
+        email: Optional[str],
         phone_number: str,
         full_name: str,
         password: str,
@@ -35,7 +35,7 @@ class AuthService:
 
         Args:
             db: Database session
-            email: User email
+            email: User email (optional for farmers)
             phone_number: User phone number
             full_name: User full name
             password: User password
@@ -48,10 +48,11 @@ class AuthService:
         Raises:
             ValueError: If validation fails
         """
-        # Check if email already exists
-        existing_user = db.query(User).filter(User.email == email).first()
-        if existing_user:
-            raise ValueError("Email already registered")
+        # Check if email already exists (only if email provided)
+        if email:
+            existing_user = db.query(User).filter(User.email == email).first()
+            if existing_user:
+                raise ValueError("Email already registered")
 
         # Check if phone number already exists
         existing_phone = db.query(User).filter(User.phone_number == phone_number).first()
@@ -61,9 +62,9 @@ class AuthService:
         # Hash password
         password_hash = hash_password(password)
 
-        # Create user
+        # Create user with role switching defaults
         user = User(
-            email=email,
+            email=email,  # Can be None for farmers
             phone_number=phone_number,
             full_name=full_name,
             password_hash=password_hash,
@@ -72,6 +73,8 @@ class AuthService:
             email_verified=False,
             phone_verified=False,
             is_verified=False,
+            can_buy=True,  # All users can buy by default
+            current_mode=user_type,  # Start in their primary mode
             **kwargs
         )
 
@@ -79,7 +82,7 @@ class AuthService:
         db.commit()
         db.refresh(user)
 
-        logger.info(f"User created: {user.id} ({user.email})")
+        logger.info(f"User created: {user.id} ({user.email or user.phone_number})")
 
         # Generate and send OTP for phone verification
         await AuthService.send_verification_otp(db, user.id, OTPType.PHONE_VERIFICATION)
@@ -237,29 +240,35 @@ class AuthService:
     @staticmethod
     def login_user(
         db: Session,
-        email: str,
-        password: str
+        password: str,
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None
     ) -> Tuple[bool, str, Optional[User]]:
         """
-        Login user with email and password
+        Login user with email/phone and password
 
         Args:
             db: Database session
-            email: User email
             password: User password
+            email: User email (optional)
+            phone_number: User phone number (optional)
 
         Returns:
             Tuple of (success: bool, message: str, user: Optional[User])
         """
-        # Get user by email
-        user = db.query(User).filter(User.email == email).first()
+        # Get user by email or phone
+        user = None
+        if email:
+            user = db.query(User).filter(User.email == email).first()
+        elif phone_number:
+            user = db.query(User).filter(User.phone_number == phone_number).first()
 
         if not user:
-            return False, "Invalid email or password", None
+            return False, "Invalid credentials", None
 
         # Verify password
         if not verify_password(password, user.password_hash):
-            return False, "Invalid email or password", None
+            return False, "Invalid credentials", None
 
         # Check if account is active
         if not user.is_active:
@@ -271,7 +280,7 @@ class AuthService:
         db.commit()
         db.refresh(user)
 
-        logger.info(f"User logged in: {user.id} ({user.email})")
+        logger.info(f"User logged in: {user.id} ({user.email or user.phone_number})")
 
         return True, "Login successful", user
 
