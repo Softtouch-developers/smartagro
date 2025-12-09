@@ -19,12 +19,15 @@ title  Entity Relationship Diagram - SmartAgro PostgreSQL Schema
 Table(users, "users") {
     primary_key(id): SERIAL
     --
-    unique(email): VARCHAR(255)
+    email: VARCHAR(255) (nullable)
     unique(phone_number): VARCHAR(20)
     password_hash: VARCHAR(255)
     full_name: VARCHAR(255)
     user_type: ENUM
     profile_image_url: TEXT
+    --
+    can_buy: BOOLEAN (default: true)
+    current_mode: VARCHAR(10) (FARMER/BUYER)
     --
     email_verified: BOOLEAN
     phone_verified: BOOLEAN
@@ -69,6 +72,13 @@ Table(users, "users") {
     last_login_at: TIMESTAMP
     last_active_at: TIMESTAMP
 }
+
+note right of users
+    Mode Switching:
+    - Farmers can switch to BUYER mode
+    - Email optional for farmers
+    - Region & town_city required for farmers
+end note
 
 Table(otp_verifications, "otp_verifications") {
     primary_key(id): SERIAL
@@ -135,12 +145,47 @@ Table(products, "products") {
 
 ' ==================== ORDERS & TRANSACTIONS ====================
 
-Table(orders, "orders") {
+Table(carts, "carts") {
     primary_key(id): SERIAL
     --
     foreign_key(buyer_id): INTEGER
-    foreign_key(seller_id): INTEGER
+    foreign_key(farmer_id): INTEGER
+    --
+    status: VARCHAR(20)
+    expires_at: TIMESTAMP
+    --
+    created_at: TIMESTAMP
+    updated_at: TIMESTAMP
+}
+
+note right of carts
+    Shopping Cart:
+    - 8 hour expiration
+    - Single farmer only
+    - Background job expires old carts
+end note
+
+Table(cart_items, "cart_items") {
+    primary_key(id): SERIAL
+    --
+    foreign_key(cart_id): INTEGER
     foreign_key(product_id): INTEGER
+    --
+    quantity: DECIMAL(10,2)
+    unit_price_snapshot: DECIMAL(10,2)
+    --
+    added_at: TIMESTAMP
+    updated_at: TIMESTAMP
+}
+
+Table(orders, "orders") {
+    primary_key(id): SERIAL
+    --
+    unique(order_number): VARCHAR(50)
+    --
+    foreign_key(buyer_id): INTEGER
+    foreign_key(seller_id): INTEGER
+    foreign_key(product_id): INTEGER (nullable)
     --
     quantity_ordered: DECIMAL(10,2)
     unit_price: DECIMAL(10,2)
@@ -149,6 +194,7 @@ Table(orders, "orders") {
     delivery_fee: DECIMAL(10,2)
     total_amount: DECIMAL(10,2)
     --
+    delivery_method: ENUM (DELIVERY/PICKUP)
     delivery_address: TEXT
     delivery_region: VARCHAR(50)
     delivery_district: VARCHAR(100)
@@ -161,12 +207,15 @@ Table(orders, "orders") {
     shipped_at: TIMESTAMP
     delivered_at: TIMESTAMP
     --
+    carrier: VARCHAR(100)
     tracking_number: VARCHAR(100)
+    delivery_confirmation_code: VARCHAR(20)
     tracking_notes: TEXT
     buyer_notes: TEXT
     seller_notes: TEXT
     --
     status: ENUM
+    payment_status: ENUM
     payment_reference: VARCHAR(255)
     payment_method: VARCHAR(50)
     --
@@ -177,6 +226,28 @@ Table(orders, "orders") {
     created_at: TIMESTAMP
     updated_at: TIMESTAMP
     completed_at: TIMESTAMP
+}
+
+note right of orders
+    Multi-Item Orders:
+    - product_id nullable for cart orders
+    - See order_items for line items
+end note
+
+Table(order_items, "order_items") {
+    primary_key(id): SERIAL
+    --
+    foreign_key(order_id): INTEGER
+    foreign_key(product_id): INTEGER
+    --
+    quantity: DECIMAL(10,2)
+    unit_price: DECIMAL(10,2)
+    subtotal: DECIMAL(10,2)
+    --
+    product_name_snapshot: VARCHAR(255)
+    unit_of_measure_snapshot: VARCHAR(20)
+    --
+    created_at: TIMESTAMP
 }
 
 Table(escrow_transactions, "escrow_transactions") {
@@ -390,6 +461,8 @@ Table(admin_actions, "admin_actions") {
 
 users "1" -- "0..*" otp_verifications: has
 users "1" -- "0..*" products: sells
+users "1" -- "0..*" carts: shops_with
+users "1" -- "0..*" carts: sells_to(farmer)
 users "1" -- "0..*" orders: buys
 users "1" -- "0..*" orders: fulfills
 users "1" -- "0..*" notifications: receives
@@ -400,8 +473,13 @@ users "1" -- "0..*" disputes: resolves(admin)
 users "1" -- "0..*" admin_actions: performs
 users "1" -- "0..*" system_configuration: updates
 
+carts "1" -- "0..*" cart_items: contains
+cart_items "*" -- "1" products: references
+
 products "1" -- "0..*" orders: ordered_in
 
+orders "1" -- "0..*" order_items: contains
+order_items "*" -- "1" products: references
 orders "1" -- "0..1" escrow_transactions: secured_by
 orders "1" -- "0..1" reviews: has_review
 orders "1" -- "0..1" disputes: has_dispute
@@ -588,13 +666,16 @@ end note
 
 ## Database Summary
 
-### PostgreSQL Tables (12)
+### PostgreSQL Tables (15)
 | Table | Purpose |
 |-------|---------|
-| `users` | User accounts (farmers, buyers, admins) |
+| `users` | User accounts (farmers, buyers, admins) with mode switching |
 | `otp_verifications` | OTP codes for phone/email verification |
 | `products` | Product listings |
+| `carts` | Shopping carts (8-hour expiry, single farmer) |
+| `cart_items` | Items in shopping carts |
 | `orders` | Order transactions |
+| `order_items` | Line items for multi-item orders |
 | `escrow_transactions` | Payment escrow records |
 | `disputes` | Order disputes |
 | `notifications` | In-app notifications |
