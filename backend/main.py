@@ -191,6 +191,7 @@ from modules.agent.routes import router as agent_router
 from modules.notifications.routes import router as notifications_router
 from modules.admin.routes import router as admin_router
 from modules.storage.routes import router as storage_router
+from modules.cart.routes import router as cart_router
 
 # Webhook endpoint (special - no auth)
 from integrations.paystack import router as paystack_webhook_router
@@ -208,6 +209,7 @@ api_prefix = "/api/v1"
 app.include_router(users_router, prefix=f"{api_prefix}/users", tags=["Users"])
 app.include_router(products_router, prefix=f"{api_prefix}/products", tags=["Products"])
 app.include_router(orders_router, prefix=f"{api_prefix}/orders", tags=["Orders"])
+app.include_router(cart_router, prefix=f"{api_prefix}/cart", tags=["Cart"])
 app.include_router(escrow_router, prefix=f"{api_prefix}/escrow", tags=["Escrow"])
 app.include_router(chat_router, prefix=f"{api_prefix}/chat", tags=["Chat"])
 app.include_router(agent_router, prefix=f"{api_prefix}/agent", tags=["AI Agent"])
