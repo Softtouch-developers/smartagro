@@ -1,6 +1,10 @@
-import { X, MapPin, Calendar, Award, User, Phone, ShoppingCart, Edit, Trash2 } from 'lucide-react';
+import { X, MapPin, Calendar, Award, User, Phone, ShoppingCart, Edit, Trash2, MessageSquare } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import productsAPI from '../lib/products';
+import cartAPI from '../lib/cart';
+import chatAPI from '../lib/chat';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Product {
   id: string;
@@ -35,13 +39,73 @@ const imageMap: Record<string, string> = {
 };
 
 export function ProductDetailModal({ product, userType, onClose }: ProductDetailModalProps) {
-  const [orderQuantity, setOrderQuantity] = useState(100);
+  const [orderQuantity, setOrderQuantity] = useState(1);
+  const [detail, setDetail] = useState<Product | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const { user, loading: authLoading } = useAuth();
   const totalPrice = (orderQuantity * product.pricePerUnit).toFixed(2);
 
   const handleOrder = () => {
-    alert(`Order placed for ${orderQuantity}${product.unit} of ${product.name}. Total: GHS ${totalPrice}`);
-    onClose();
+    (async () => {
+      try {
+        const pid = product.id;
+        await cartAPI.addToCart(pid, orderQuantity);
+        alert('Added to cart — go to Cart to complete checkout');
+        onClose();
+      } catch (e: any) {
+        const msg = e?.message || JSON.stringify(e);
+        alert('Failed to add to cart: ' + msg);
+      }
+    })();
   };
+
+  const handleContactSeller = async () => {
+    try {
+      if (!user) {
+        alert('Please login to contact seller');
+        return;
+      }
+
+      const sellerId = detail?.farmerId || (product as any).farmerId;
+      const productId = product.id;
+      const conv = await chatAPI.createConversation(sellerId, productId);
+      alert('Conversation opened. ID: ' + (conv?.id || conv?.conversation_id || 'created'));
+      onClose();
+    } catch (e: any) {
+      alert('Failed to start conversation: ' + (e?.message || JSON.stringify(e)));
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      setLoadingDetail(true);
+      try {
+        const res = await productsAPI.getProduct(product.id);
+        const p = {
+          id: String(res.id || product.id),
+          name: res.product_name || res.name || product.name,
+          category: res.category || product.category,
+          quantity: String(res.quantity_available ?? res.quantity ?? product.quantity),
+          unit: res.unit_of_measure || product.unit,
+          pricePerUnit: res.price_per_unit ?? res.pricePerUnit ?? product.pricePerUnit,
+          location: res.region || res.location || product.location,
+          farmer: res.seller?.full_name || res.seller?.name || product.farmer,
+          farmerId: res.seller?.id || (product as any).farmerId || '',
+          quality: 'Grade A',
+          harvestDate: res.harvest_date || product.harvestDate || '',
+          availableUntil: res.available_until || product.availableUntil || '',
+          image: res.primary_image_url || product.image,
+          verified: !!res.verified,
+          description: res.description || product.description || ''
+        } as Product;
+        setDetail(p);
+      } catch (e) {
+        setDetail(product);
+      } finally {
+        setLoadingDetail(false);
+      }
+    })();
+  }, [product]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>

@@ -6,11 +6,17 @@ import { OfflineIndicator } from "./components/OfflineIndicator";
 import { FeatureShowcase } from "./components/FeatureShowcase";
 import { DemoNotice } from "./components/DemoNotice";
 import { Sprout, ShoppingCart } from "lucide-react";
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import OTPVerify from './pages/OTPVerify';
+import { useAuth } from './contexts/AuthContext';
 
 export default function App() {
   const [userType, setUserType] = useState<
     "farmer" | "customer" | null
   >(null);
+  const [authModal, setAuthModal] = useState<{ type: 'login' | 'signup' | 'verify' | null; userId?: number | null }>({ type: null });
+  const { user } = useAuth();
 
   return (
     <>
@@ -83,14 +89,41 @@ export default function App() {
                 <Sprout className="w-6 h-6" />
                 <span>SmartAgro</span>
               </div>
-              <button
-                onClick={() => setUserType(null)}
-                className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-              >
-                Switch View
-              </button>
+              <div className="flex items-center gap-3">
+                {!user && (
+                  <>
+                    <button onClick={() => setAuthModal({ type: 'login' })} className="px-3 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">Login</button>
+                    <button onClick={() => setAuthModal({ type: 'signup' })} className="px-3 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">Sign up</button>
+                  </>
+                )}
+                <button
+                  onClick={() => setUserType(null)}
+                  className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                >
+                  Switch View
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Auth modals */}
+          {authModal.type === 'login' && (
+            <div className="fixed inset-0 z-50 p-6 bg-black/40 flex items-center justify-center">
+              <Login onClose={() => setAuthModal({ type: null })} />
+            </div>
+          )}
+
+          {authModal.type === 'signup' && (
+            <div className="fixed inset-0 z-50 p-6 bg-black/40 flex items-center justify-center">
+              <Signup onVerified={(uid) => setAuthModal({ type: 'verify', userId: uid })} />
+            </div>
+          )}
+
+          {authModal.type === 'verify' && authModal.userId && (
+            <div className="fixed inset-0 z-50 p-6 bg-black/40 flex items-center justify-center">
+              <OTPVerify userId={authModal.userId} onComplete={() => setAuthModal({ type: null })} onCancel={() => setAuthModal({ type: null })} />
+            </div>
+          )}
 
           {userType === "farmer" ? (
             <FarmerDashboard />

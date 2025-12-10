@@ -1,5 +1,8 @@
 import { MapPin, Calendar, Award, Eye, Edit } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import cartAPI from '../lib/cart';
+import chatAPI from '../lib/chat';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Product {
   id: string;
@@ -36,6 +39,30 @@ export function ProductCard({ product, userType, onViewDetails }: ProductCardPro
     'Premium': 'bg-purple-100 text-purple-700',
     'Grade A': 'bg-green-100 text-green-700',
     'Grade B': 'bg-blue-100 text-blue-700'
+  };
+  const { user } = useAuth();
+
+  const handleQuickAdd = async () => {
+    try {
+      await cartAPI.addToCart(product.id, 1);
+      alert('Added 1 unit to cart');
+    } catch (e: any) {
+      alert('Failed to add to cart: ' + (e?.message || JSON.stringify(e)));
+    }
+  };
+
+  const handleContact = async () => {
+    try {
+      if (!user) {
+        alert('Please login to contact seller');
+        return;
+      }
+      const farmerId = (product as any).farmerId || null;
+      const conv = await chatAPI.createConversation(farmerId, product.id);
+      alert('Conversation opened: ' + (conv?.id || 'ok'));
+    } catch (e: any) {
+      alert('Failed to start conversation: ' + (e?.message || JSON.stringify(e)));
+    }
   };
 
   return (
@@ -103,6 +130,12 @@ export function ProductCard({ product, userType, onViewDetails }: ProductCardPro
             </>
           )}
         </button>
+        {userType === 'customer' && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button onClick={handleQuickAdd} className="px-3 py-2 bg-emerald-50 text-emerald-700 rounded">Add to cart</button>
+            <button onClick={handleContact} className="px-3 py-2 bg-white border rounded">Contact</button>
+          </div>
+        )}
       </div>
     </div>
   );

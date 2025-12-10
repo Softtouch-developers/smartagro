@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Mic, Volume2 } from 'lucide-react';
-import agentAPI from '../lib/agent';
-import { useAuth } from '../contexts/AuthContext';
 
 interface Message {
   id: string;
@@ -39,9 +37,7 @@ export function AdvisoryChat() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [streaming, setStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -81,65 +77,19 @@ export function AdvisoryChat() {
       timestamp: new Date()
     };
 
-    setMessages((prev: Message[]) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInputText('');
 
-    // Call backend agent stream
-    (async () => {
-      setStreaming(true);
-      let partial = '';
-      try {
-        await agentAPI.streamAgentChat({ message: inputText, session_id: null }, (ev) => {
-          if (ev.type === 'token' || ev.type === 'message' || ev.type === 'data') {
-            // build partial answer
-            const token = typeof ev.data === 'string' ? ev.data : (ev.data?.token || ev.data?.text || '');
-            partial += token;
-            const botMessage: Message = {
-              id: 'bot-stream',
-              text: partial,
-              sender: 'bot',
-              timestamp: new Date()
-            };
-            // replace or append streamed bot message
-            setMessages((prev: Message[]) => {
-              const withoutStream = prev.filter((m: Message) => m.id !== 'bot-stream');
-              return [...withoutStream, botMessage];
-            });
-          } else if (ev.type === 'done') {
-            // finalize
-            const finalText = typeof ev.data === 'string' ? ev.data : (ev.data?.text || partial);
-            const botMessage: Message = {
-              id: Date.now().toString(),
-              text: finalText,
-              sender: 'bot',
-              timestamp: new Date()
-            };
-            setMessages((prev: Message[]) => {
-              const withoutStream = prev.filter((m: Message) => m.id !== 'bot-stream');
-              return [...withoutStream, botMessage];
-            });
-          } else if (ev.type === 'error') {
-            const botMessage: Message = {
-              id: Date.now().toString(),
-              text: 'Agent error: ' + JSON.stringify(ev.data),
-              sender: 'bot',
-              timestamp: new Date()
-            };
-            setMessages((prev: Message[]) => [...prev, botMessage]);
-          }
-        });
-      } catch (e: any) {
-        const botMessage: Message = {
-          id: Date.now().toString(),
-          text: 'Failed to reach advisory agent: ' + (e?.message || JSON.stringify(e)),
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, botMessage]);
-      } finally {
-        setStreaming(false);
-      }
-    })();
+    // Simulate bot response delay
+    setTimeout(() => {
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: getBotResponse(inputText),
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, botMessage]);
+    }, 1000);
   };
 
   const handleQuickQuestion = (question: string) => {

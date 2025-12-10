@@ -124,8 +124,10 @@ async def health_check():
     """
     try:
         # Check PostgreSQL
+        from sqlalchemy import text
         db = next(get_db())
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
+        db.close()
         postgres_healthy = True
     except Exception as e:
         logger.error(f"PostgreSQL health check failed: {e}")

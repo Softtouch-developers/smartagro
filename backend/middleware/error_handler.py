@@ -1,7 +1,7 @@
 """
 Global error handling middleware
 """
-from fastapi import Request, status
+from fastapi import Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -26,6 +26,47 @@ class ErrorCode:
 
 def setup_error_handlers(app):
     """Setup global error handlers"""
+    
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        """Handle HTTP exceptions"""
+        request_id = str(uuid.uuid4())
+        
+        # Handle different detail formats - ensure it's always serializable
+        try:
+            if isinstance(exc.detail, dict):
+                detail = exc.detail
+            elif isinstance(exc.detail, str):
+                detail = {"message": exc.detail}
+            else:
+                # Convert non-serializable objects to string
+                detail = {"message": str(exc.detail)}
+        except Exception as e:
+            # Fallback if detail can't be converted
+            logger.error(f"Error processing HTTPException detail: {e}")
+            detail = {"message": "An error occurred"}
+        
+        logger.warning(f"HTTP error [{request_id}]: {detail}")
+        
+        # Ensure all values in detail are JSON serializable
+        serializable_detail = {}
+        for key, value in detail.items():
+            try:
+                # Test if value is JSON serializable
+                import json
+                json.dumps(value)
+                serializable_detail[key] = value
+            except (TypeError, ValueError):
+                serializable_detail[key] = str(value)
+        
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": serializable_detail,
+                "request_id": request_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
     
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
