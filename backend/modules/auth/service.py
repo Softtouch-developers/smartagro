@@ -258,6 +258,7 @@ class AuthService:
         """
         # Get user by email or phone
         user = None
+
         if email:
             user = db.query(User).filter(User.email == email).first()
         elif phone_number:
@@ -273,6 +274,10 @@ class AuthService:
         # Check if account is active
         if not user.is_active:
             return False, "Account has been suspended", None
+
+        # Initialize current_mode if not set
+        if user.current_mode is None:
+            user.current_mode = user.user_type.value
 
         # Update last login
         user.last_login_at = datetime.utcnow()

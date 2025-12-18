@@ -62,8 +62,8 @@ class ProductService:
             harvest_date=product_data.harvest_date,
             expected_shelf_life_days=product_data.expected_shelf_life_days,
             farm_location=product_data.farm_location,
-            region=product_data.region,
-            district=product_data.district,
+            region=product_data.region or seller.region,
+            district=product_data.district or seller.district,
             is_organic=product_data.is_organic,
             variety=product_data.variety,
             status=ProductStatus.AVAILABLE

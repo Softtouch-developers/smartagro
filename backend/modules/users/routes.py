@@ -213,6 +213,7 @@ async def switch_mode(
 
     current_user.current_mode = target_mode
     db.commit()
+    db.refresh(current_user)
 
     logger.info(f"User {current_user.id} switched to {target_mode} mode")
 

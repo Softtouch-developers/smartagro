@@ -22,7 +22,7 @@ from modules.products.schemas import (
     MessageResponse,
     ProductImageResponse
 )
-from modules.storage.service import StorageService
+from modules.storage.service import storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -427,9 +427,8 @@ async def upload_product_image(
             )
 
         # Upload image
-        file_url = await StorageService.upload_image(
-            file=file,
-            user_id=current_user.id
+        file_url = await storage_service.upload_image(
+            file=file
         )
 
         # Update product with image URL
@@ -526,7 +525,7 @@ async def delete_product_image(
             # Extract path from URL for deletion
             if "uploads/" in image_url:
                 file_path = image_url.split("uploads/")[-1]
-                await StorageService.delete_file(f"uploads/{file_path}")
+                storage_service.delete_file(f"uploads/{file_path}")
         except Exception as storage_error:
             logger.warning(f"Failed to delete image from storage: {storage_error}")
 

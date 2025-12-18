@@ -140,10 +140,24 @@ class LoginRequest(BaseModel):
 
     @validator('phone_number', always=True)
     def validate_login_identifier(cls, v, values):
-        """Ensure either email or phone is provided"""
+        """Ensure either email or phone is provided and validate phone format"""
         email = values.get('email')
+        
         if not email and not v:
             raise ValueError('Either email or phone_number is required')
+            
+        # Strict validation: If phone_number is provided, it must NOT be an email
+        if v:
+            if "@" in v:
+                raise ValueError('Invalid phone number format. Please enter a valid phone number.')
+            
+            # Basic phone validation (digits, +, spaces, dashes allowed)
+            # We don't enforce strict Ghana format here to allow legacy numbers, 
+            # but we ensure it looks like a phone number
+            cleaned = v.replace(" ", "").replace("-", "").replace("+", "")
+            if not cleaned.isdigit():
+                raise ValueError('Phone number must contain only digits')
+                
         return v
 
     class Config:
