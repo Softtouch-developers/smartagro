@@ -15,6 +15,7 @@ from .schemas import (
     LoginRequest, LoginResponse,
     RefreshTokenRequest, TokenResponse,
     ForgotPasswordRequest, ResetPasswordRequest,
+    VerifyResetOtpRequest, VerifyResetOtpResponse,
     UserResponse, MessageResponse
 )
 from .service import AuthService
@@ -315,17 +316,19 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
     """
     Initiate password reset
 
-    - **email**: User email address
+    - **email**: User email (optional)
+    - **phone_number**: User phone number (optional)
 
     Sends OTP code to user's phone for password reset
     """
     try:
         success, message = await AuthService.initiate_password_reset(
             db=db,
-            email=request.email
+            email=request.email,
+            phone_number=request.phone_number
         )
 
-        # Always return success to prevent email enumeration
+        # Always return success to prevent enumeration
         return MessageResponse(
             success=True,
             message=message
@@ -342,23 +345,23 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
         )
 
 
-@router.post("/reset-password", response_model=MessageResponse)
-async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+@router.post("/verify-reset-otp", response_model=VerifyResetOtpResponse)
+async def verify_reset_otp(request: VerifyResetOtpRequest, db: Session = Depends(get_db)):
     """
-    Reset password with OTP
+    Verify reset OTP and get reset token
 
-    - **user_id**: User ID
+    - **email**: User email (optional)
+    - **phone_number**: User phone number (optional)
     - **otp_code**: OTP code received via SMS
-    - **new_password**: New password (min 8 chars, must contain uppercase, lowercase, digit)
 
-    Resets password and invalidates all existing tokens
+    Returns a short-lived reset token if verification is successful
     """
     try:
-        success, message = AuthService.reset_password(
+        success, message, reset_token = AuthService.verify_reset_otp(
             db=db,
-            user_id=request.user_id,
-            otp_code=request.otp_code,
-            new_password=request.new_password
+            email=request.email,
+            phone_number=request.phone_number,
+            otp_code=request.otp_code
         )
 
         if not success:
@@ -366,6 +369,50 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "code": "OTP_INVALID",
+                    "message": message
+                }
+            )
+
+        return VerifyResetOtpResponse(
+            success=True,
+            message=message,
+            reset_token=reset_token
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Verify reset OTP error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "INTERNAL_ERROR",
+                "message": "Failed to verify OTP. Please try again."
+            }
+        )
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Reset password with token
+
+    - **token**: Reset token received from verify-reset-otp
+    - **new_password**: New password (min 8 chars, must contain uppercase, lowercase, digit)
+
+    Resets password and invalidates all existing tokens
+    """
+    try:
+        success, message = AuthService.reset_password(
+            db=db,
+            token=request.token,
+            new_password=request.new_password
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "INVALID_TOKEN",
                     "message": message
                 }
             )
