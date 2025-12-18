@@ -26,8 +26,8 @@ class CreateProductRequest(BaseModel):
 
     # Location
     farm_location: Optional[str] = Field(None, max_length=255)
-    region: str = Field(..., max_length=50)
-    district: str = Field(..., max_length=100)
+    region: Optional[str] = Field(None, max_length=50)
+    district: Optional[str] = Field(None, max_length=100)
 
     # Optional attributes
     is_organic: bool = False
@@ -113,7 +113,7 @@ class ProductResponse(BaseModel):
     seller_id: int
     product_name: str
     category: str
-    description: str
+    description: Optional[str]
     quantity_available: float
     unit_of_measure: str
     price_per_unit: float
@@ -125,27 +125,25 @@ class ProductResponse(BaseModel):
 
     # Location
     farm_location: Optional[str]
-    region: str
-    district: str
+    region: Optional[str]
+    district: Optional[str]
 
     # Images
     primary_image_url: Optional[str]
-    image_urls: List[str] = []
+    additional_images: Optional[List[str]] = None
 
     # Attributes
     is_organic: bool
-    variety: Optional[str]
+    variety: Optional[str] = None
     status: str
     is_featured: bool
-    is_active: bool
 
     # Statistics
-    total_orders: int = 0
-    total_quantity_sold: float = 0
-    average_rating: Optional[float] = None
-    total_reviews: int = 0
+    order_count: int = 0
+    total_sold: float = 0
+    view_count: int = 0
 
-    # Seller info (embedded)
+    # Optional seller info (not from model, populated separately)
     seller_name: Optional[str] = None
     seller_region: Optional[str] = None
     seller_rating: Optional[float] = None
@@ -179,3 +177,11 @@ class MessageResponse(BaseModel):
     """Generic message response"""
     success: bool
     message: str
+
+
+class ProductImageResponse(BaseModel):
+    """Product image upload response"""
+    success: bool = True
+    url: str
+    is_primary: bool = False
+    message: str = "Image uploaded successfully"

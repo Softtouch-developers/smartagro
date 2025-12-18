@@ -27,7 +27,9 @@ class ChatService:
         buyer_id: int,
         seller_id: int,
         product_id: Optional[int] = None,
-        product_name: Optional[str] = None
+        product_name: Optional[str] = None,
+        buyer_name: Optional[str] = None,
+        seller_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Create or retrieve existing conversation
@@ -42,14 +44,16 @@ class ChatService:
 
         if existing:
             return {
-                "id": str(existing["_id"]),
                 "conversation_id": existing["conversation_id"],
                 "buyer_id": existing["buyer_id"],
                 "seller_id": existing["seller_id"],
+                "buyer_name": buyer_name,
+                "seller_name": seller_name,
                 "product_id": existing.get("product_id"),
+                "product_name": existing.get("product_name"),
                 "last_message": existing.get("last_message"),
-                "last_message_at": existing.get("last_message_at"),
-                "created_at": existing["created_at"]
+                "unread_count": 0,
+                "updated_at": existing.get("updated_at")
             }
 
         # Create new conversation
@@ -74,14 +78,16 @@ class ChatService:
         logger.info(f"Conversation created: {conversation_id}")
 
         return {
-            "id": str(result.inserted_id),
             "conversation_id": conversation_id,
             "buyer_id": buyer_id,
             "seller_id": seller_id,
+            "buyer_name": buyer_name,
+            "seller_name": seller_name,
             "product_id": product_id,
+            "product_name": product_name,
             "last_message": None,
-            "last_message_at": None,
-            "created_at": conversation_data["created_at"]
+            "unread_count": 0,
+            "updated_at": conversation_data["updated_at"]
         }
 
     @staticmethod
@@ -209,15 +215,14 @@ class ChatService:
         conversation_list = []
         for conv in results:
             conversation_list.append({
-                "id": str(conv["_id"]),
                 "conversation_id": conv["conversation_id"],
                 "buyer_id": conv["buyer_id"],
                 "seller_id": conv["seller_id"],
-                "related_product_id": conv.get("product_id"),
+                "product_id": conv.get("product_id"),
+                "product_name": conv.get("product_name"),
                 "last_message": conv.get("last_message"),
-                "last_message_at": conv.get("last_message_at"),
                 "unread_count": conv.get(unread_field, 0),
-                "created_at": conv["created_at"]
+                "updated_at": conv.get("updated_at")
             })
 
         return conversation_list

@@ -63,17 +63,25 @@ class CheckoutRequest(BaseModel):
 
 # ==================== RESPONSE SCHEMAS ====================
 
+class ProductSummary(BaseModel):
+    """Simplified product details for cart"""
+    product_name: str
+    primary_image_url: Optional[str] = None
+    unit_of_measure: str
+    quantity_available: float
+
+    class Config:
+        from_attributes = True
+
+
 class CartItemResponse(BaseModel):
     """Cart item response"""
     id: int
     product_id: int
-    product_name: str
-    product_image: Optional[str] = None
-    quantity: Decimal
-    unit_price: Decimal
-    subtotal: Decimal
-    unit_of_measure: str
-    available_quantity: Decimal  # Current stock
+    quantity: float
+    unit_price_snapshot: float
+    subtotal: float
+    product: ProductSummary
 
     class Config:
         from_attributes = True
@@ -88,12 +96,13 @@ class CartResponse(BaseModel):
     status: str
     items: List[CartItemResponse]
     items_count: int
-    subtotal: Decimal
-    platform_fee: Decimal
-    delivery_fee: Decimal
-    total: Decimal
+    subtotal: float
+    platform_fee: float
+    delivery_fee: float
+    total: float
     expires_at: datetime
     expires_in_minutes: int
+    time_remaining_seconds: int
 
     class Config:
         from_attributes = True

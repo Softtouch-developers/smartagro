@@ -140,10 +140,24 @@ class LoginRequest(BaseModel):
 
     @validator('phone_number', always=True)
     def validate_login_identifier(cls, v, values):
-        """Ensure either email or phone is provided"""
+        """Ensure either email or phone is provided and validate phone format"""
         email = values.get('email')
+        
         if not email and not v:
             raise ValueError('Either email or phone_number is required')
+            
+        # Strict validation: If phone_number is provided, it must NOT be an email
+        if v:
+            if "@" in v:
+                raise ValueError('Invalid phone number format. Please enter a valid phone number.')
+            
+            # Basic phone validation (digits, +, spaces, dashes allowed)
+            # We don't enforce strict Ghana format here to allow legacy numbers, 
+            # but we ensure it looks like a phone number
+            cleaned = v.replace(" ", "").replace("-", "").replace("+", "")
+            if not cleaned.isdigit():
+                raise ValueError('Phone number must contain only digits')
+                
         return v
 
     class Config:
@@ -169,20 +183,69 @@ class RefreshTokenRequest(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     """Forgot password request"""
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+
+    @validator('phone_number', always=True)
+    def validate_identifier(cls, v, values):
+        """Ensure either email or phone is provided"""
+        email = values.get('email')
+        if not email and not v:
+            raise ValueError('Either email or phone_number is required')
+        return v
 
     class Config:
         json_schema_extra = {
             "example": {
-                "email": "farmer@example.com"
+                "email": "farmer@example.com",
+                "phone_number": "+233545142039"
+            }
+        }
+
+
+class VerifyResetOtpRequest(BaseModel):
+    """Verify reset OTP request"""
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+    otp_code: str = Field(..., min_length=6, max_length=6)
+
+    @validator('phone_number', always=True)
+    def validate_identifier(cls, v, values):
+        """Ensure either email or phone is provided"""
+        email = values.get('email')
+        if not email and not v:
+            raise ValueError('Either email or phone_number is required')
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "farmer@example.com",
+                "phone_number": "+233545142039",
+                "otp_code": "885319"
+            }
+        }
+
+
+class VerifyResetOtpResponse(BaseModel):
+    """Verify reset OTP response"""
+    success: bool
+    message: str
+    reset_token: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "OTP verified successfully",
+                "reset_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
             }
         }
 
 
 class ResetPasswordRequest(BaseModel):
     """Reset password request"""
-    user_id: int
-    otp_code: str = Field(..., min_length=6, max_length=6)
+    token: str
     new_password: str = Field(..., min_length=8, max_length=100)
 
     @validator('new_password')
@@ -201,8 +264,7 @@ class ResetPasswordRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "user_id": 21,
-                "otp_code": "885319",
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 "new_password": "NewSecurePass123!"
             }
         }
