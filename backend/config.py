@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_PER_MINUTE: int = 60
-    AUTH_RATE_LIMIT_PER_MINUTE: int = 5
+    AUTH_RATE_LIMIT_PER_MINUTE: int = 15
     
     # Escrow
     PLATFORM_FEE_PERCENTAGE: float = 5.0

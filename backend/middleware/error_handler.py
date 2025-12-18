@@ -32,7 +32,19 @@ def setup_error_handlers(app):
         """Handle Pydantic validation errors"""
         request_id = str(uuid.uuid4())
         
-        logger.warning(f"Validation error [{request_id}]: {exc.errors()}")
+        # Sanitize errors to ensure JSON serializability
+        # Pydantic v2 includes exception objects in 'ctx' which aren't serializable
+        errors = []
+        for error in exc.errors():
+            sanitized_error = error.copy()
+            if 'ctx' in sanitized_error:
+                # Convert ctx values to strings or remove them
+                sanitized_error['ctx'] = {k: str(v) for k, v in sanitized_error['ctx'].items()}
+            if 'url' in sanitized_error:
+                del sanitized_error['url']
+            errors.append(sanitized_error)
+            
+        logger.warning(f"Validation error [{request_id}]: {errors}")
         
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -40,7 +52,7 @@ def setup_error_handlers(app):
                 "error": {
                     "code": ErrorCode.VALIDATION_ERROR,
                     "message": "Validation error",
-                    "details": exc.errors()
+                    "details": errors
                 },
                 "request_id": request_id,
                 "timestamp": datetime.utcnow().isoformat()
