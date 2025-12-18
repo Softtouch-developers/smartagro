@@ -66,8 +66,7 @@ class ProductService:
             district=product_data.district,
             is_organic=product_data.is_organic,
             variety=product_data.variety,
-            status=ProductStatus.AVAILABLE,
-            is_active=True
+            status=ProductStatus.AVAILABLE
         )
 
         db.add(product)
@@ -182,8 +181,7 @@ class ProductService:
             )
 
         # Soft delete
-        product.is_active = False
-        product.status = ProductStatus.OUT_OF_STOCK
+        product.status = ProductStatus.DELETED
         product.updated_at = datetime.utcnow()
 
         db.commit()
@@ -209,7 +207,7 @@ class ProductService:
         Returns:
             Tuple of (products, total_count)
         """
-        query = db.query(Product).filter(Product.is_active == True)
+        query = db.query(Product).filter(Product.status != ProductStatus.DELETED)
 
         # Apply filters
         if filters.category:
@@ -272,7 +270,6 @@ class ProductService:
         return db.query(Product).filter(
             and_(
                 Product.is_featured == True,
-                Product.is_active == True,
                 Product.status == ProductStatus.AVAILABLE
             )
         ).order_by(desc(Product.created_at)).limit(limit).all()
@@ -284,7 +281,6 @@ class ProductService:
 
         return db.query(Product).filter(
             and_(
-                Product.is_active == True,
                 Product.status == ProductStatus.AVAILABLE,
                 or_(
                     Product.product_name.ilike(search_pattern),

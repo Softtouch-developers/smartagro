@@ -134,10 +134,9 @@ class ProductResponse(BaseModel):
 
     # Attributes
     is_organic: bool
-    variety: Optional[str]
+    variety: Optional[str] = None
     status: str
     is_featured: bool
-    is_active: bool
 
     # Statistics
     total_orders: int = 0
