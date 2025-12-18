@@ -74,7 +74,7 @@ class AuthService:
             phone_verified=False,
             is_verified=False,
             can_buy=True,  # All users can buy by default
-            current_mode=user_type,  # Start in their primary mode
+            current_mode=user_type.value if hasattr(user_type, "value") else user_type,  # Start in their primary mode
             **kwargs
         )
 
@@ -337,17 +337,24 @@ class AuthService:
         payload = verify_token(refresh_token, expected_type="refresh")
 
         if not payload:
+            logger.warning(f"Refresh token verification failed. Token: {refresh_token[:10]}...")
             return False, "Invalid or expired refresh token", None
 
         user_id = payload.get("sub")
         if not user_id:
+            logger.warning("Refresh token payload missing 'sub'")
             return False, "Invalid token payload", None
 
         # Check if refresh token exists in Redis
         redis_client = get_redis()
         stored_token = redis_client.get(f"refresh_token:{user_id}")
 
-        if not stored_token or stored_token != refresh_token:
+        if not stored_token:
+            logger.warning(f"No stored refresh token found for user {user_id}")
+            return False, "Refresh token has been revoked", None
+            
+        if stored_token != refresh_token:
+            logger.warning(f"Stored token mismatch for user {user_id}. Stored: {stored_token[:10]}... Incoming: {refresh_token[:10]}...")
             return False, "Refresh token has been revoked", None
 
         # Get user from database (using a new session)
