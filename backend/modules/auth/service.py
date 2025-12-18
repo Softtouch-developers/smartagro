@@ -403,23 +403,32 @@ class AuthService:
         return True
 
     @staticmethod
-    async def initiate_password_reset(db: Session, email: str) -> Tuple[bool, str]:
+    async def initiate_password_reset(
+        db: Session,
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None
+    ) -> Tuple[bool, str]:
         """
         Initiate password reset process
 
         Args:
             db: Database session
-            email: User email
+            email: User email (optional)
+            phone_number: User phone number (optional)
 
         Returns:
             Tuple of (success: bool, message: str)
         """
         # Get user
-        user = db.query(User).filter(User.email == email).first()
+        user = None
+        if email:
+            user = db.query(User).filter(User.email == email).first()
+        elif phone_number:
+            user = db.query(User).filter(User.phone_number == phone_number).first()
 
         if not user:
-            # Don't reveal if email exists or not (security)
-            return True, "If the email exists, a password reset code has been sent"
+            # Don't reveal if user exists or not (security)
+            return True, "If the account exists, a password reset code has been sent"
 
         # Generate and send OTP
         result = await AuthService.send_verification_otp(db, user.id, OTPType.PASSWORD_RESET)
@@ -427,31 +436,80 @@ class AuthService:
         return result.get("success", False), "Password reset code sent to your phone"
 
     @staticmethod
-    def reset_password(
+    def verify_reset_otp(
         db: Session,
-        user_id: int,
         otp_code: str,
-        new_password: str
-    ) -> Tuple[bool, str]:
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None
+    ) -> Tuple[bool, str, Optional[str]]:
         """
-        Reset user password with OTP verification
+        Verify reset OTP and generate reset token
 
         Args:
             db: Database session
-            user_id: User ID
             otp_code: OTP code
+            email: User email (optional)
+            phone_number: User phone number (optional)
+
+        Returns:
+            Tuple of (success: bool, message: str, reset_token: Optional[str])
+        """
+        # Get user
+        user = None
+        if email:
+            user = db.query(User).filter(User.email == email).first()
+        elif phone_number:
+            user = db.query(User).filter(User.phone_number == phone_number).first()
+
+        if not user:
+            return False, "Invalid account or OTP", None
+
+        # Verify OTP
+        success, message, _ = AuthService.verify_otp(
+            db, user.id, otp_code, OTPType.PASSWORD_RESET
+        )
+
+        if not success:
+            return False, message, None
+
+        # Generate reset token (short-lived JWT)
+        reset_token = create_access_token(
+            data={"sub": str(user.id), "type": "password_reset"},
+            expires_delta=timedelta(minutes=settings.RESET_PASSWORD_TOKEN_EXPIRE_MINUTES)
+        )
+
+        return True, "OTP verified successfully", reset_token
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        token: str,
+        new_password: str
+    ) -> Tuple[bool, str]:
+        """
+        Reset user password with reset token
+
+        Args:
+            db: Database session
+            token: Reset token
             new_password: New password
 
         Returns:
             Tuple of (success: bool, message: str)
         """
-        # Verify OTP
-        success, message, user = AuthService.verify_otp(
-            db, user_id, otp_code, OTPType.PASSWORD_RESET
-        )
+        # Verify token
+        payload = verify_token(token, expected_type="password_reset")
+        if not payload:
+            return False, "Invalid or expired reset token"
 
-        if not success:
-            return False, message
+        user_id = payload.get("sub")
+        if not user_id:
+            return False, "Invalid token payload"
+
+        # Get user
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user:
+            return False, "User not found"
 
         # Hash new password
         password_hash = hash_password(new_password)
