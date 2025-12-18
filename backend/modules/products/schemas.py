@@ -178,3 +178,11 @@ class MessageResponse(BaseModel):
     """Generic message response"""
     success: bool
     message: str
+
+
+class ProductImageResponse(BaseModel):
+    """Product image upload response"""
+    success: bool = True
+    url: str
+    is_primary: bool = False
+    message: str = "Image uploaded successfully"
