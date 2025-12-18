@@ -36,30 +36,6 @@ PRODUCT_IMAGES = {
 }
 
 
-def copy_product_images():
-    """Copy product images from frontend to uploads folder"""
-    source_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "productimages")
-    dest_dir = os.path.join(os.path.dirname(__file__), "uploads", "products")
-
-    # Create destination directory if it doesn't exist
-    os.makedirs(dest_dir, exist_ok=True)
-
-    copied_images = {}
-    for key, filename in PRODUCT_IMAGES.items():
-        source_path = os.path.join(source_dir, filename)
-        if os.path.exists(source_path):
-            dest_filename = filename.replace(" ", "_").lower()
-            dest_path = os.path.join(dest_dir, dest_filename)
-            shutil.copy2(source_path, dest_path)
-            # Return URL path for database
-            copied_images[key] = f"/uploads/products/{dest_filename}"
-            logger.info(f"  Copied {filename} -> {dest_filename}")
-        else:
-            logger.warning(f"  Image not found: {source_path}")
-            copied_images[key] = None
-
-    return copied_images
-
 
 def seed_users(db: Session):
     """Create test users"""
@@ -284,7 +260,7 @@ def seed_users(db: Session):
     }
 
 
-def seed_products(db: Session, users: dict, images: dict):
+def seed_products(db: Session, users: dict):
     """Create test products with images"""
     logger.info("Seeding products...")
 
@@ -292,6 +268,15 @@ def seed_products(db: Session, users: dict, images: dict):
     farmer2 = users["farmer2"]
     farmer3 = users["farmer3"]
     farmer4 = users["farmer4"]
+
+    def get_image_path(key):
+        """Helper to get image path from PRODUCT_IMAGES"""
+        filename = PRODUCT_IMAGES.get(key)
+        if not filename:
+            return None
+        # Assuming images are in uploads/products/ and keep original filenames
+        # If you manually renamed them to replace spaces with underscores, update this logic
+        return f"/uploads/products/{filename}"
 
     products_data = [
         # ========== FARMER 1 (Kwame) - Vegetables ==========
@@ -312,7 +297,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("tomato"),
+            "primary_image_url": get_image_path("tomato"),
             "view_count": 234,
             "order_count": 45,
         },
@@ -333,7 +318,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("pepper"),
+            "primary_image_url": get_image_path("pepper"),
             "view_count": 156,
             "order_count": 28,
         },
@@ -354,7 +339,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("cabbage"),
+            "primary_image_url": get_image_path("cabbage"),
             "view_count": 89,
             "order_count": 15,
         },
@@ -375,7 +360,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("okro"),
+            "primary_image_url": get_image_path("okro"),
             "view_count": 178,
             "order_count": 38,
         },
@@ -398,7 +383,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("yam"),
+            "primary_image_url": get_image_path("yam"),
             "view_count": 312,
             "order_count": 67,
         },
@@ -419,7 +404,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("cassava"),
+            "primary_image_url": get_image_path("cassava"),
             "view_count": 198,
             "order_count": 42,
         },
@@ -440,7 +425,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("maize"),
+            "primary_image_url": get_image_path("maize"),
             "view_count": 267,
             "order_count": 58,
         },
@@ -461,7 +446,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("sweet_potato"),
+            "primary_image_url": get_image_path("sweet_potato"),
             "view_count": 145,
             "order_count": 31,
         },
@@ -484,7 +469,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("banana"),
+            "primary_image_url": get_image_path("banana"),
             "view_count": 289,
             "order_count": 56,
         },
@@ -505,7 +490,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("mango"),
+            "primary_image_url": get_image_path("mango"),
             "view_count": 356,
             "order_count": 72,
         },
@@ -526,7 +511,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("orange"),
+            "primary_image_url": get_image_path("orange"),
             "view_count": 178,
             "order_count": 34,
         },
@@ -547,7 +532,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("plantain"),
+            "primary_image_url": get_image_path("plantain"),
             "view_count": 234,
             "order_count": 48,
         },
@@ -570,7 +555,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("onion"),
+            "primary_image_url": get_image_path("onion"),
             "view_count": 445,
             "order_count": 89,
         },
@@ -591,7 +576,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("carrot"),
+            "primary_image_url": get_image_path("carrot"),
             "view_count": 167,
             "order_count": 29,
         },
@@ -612,7 +597,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": False,
             "status": ProductStatus.AVAILABLE,
             "is_featured": True,
-            "primary_image_url": images.get("cashew"),
+            "primary_image_url": get_image_path("cashew"),
             "view_count": 312,
             "order_count": 45,
         },
@@ -633,7 +618,7 @@ def seed_products(db: Session, users: dict, images: dict):
             "is_organic": True,
             "status": ProductStatus.AVAILABLE,
             "is_featured": False,
-            "primary_image_url": images.get("squash"),
+            "primary_image_url": get_image_path("squash"),
             "view_count": 98,
             "order_count": 18,
         },
@@ -791,15 +776,11 @@ def seed_all(db: Session):
     logger.info("🌱 Starting database seeding...")
 
     try:
-        # Copy product images first
-        logger.info("📷 Copying product images...")
-        images = copy_product_images()
-
         # Seed users
         users = seed_users(db)
 
         # Seed products with images
-        seed_products(db, users, images)
+        seed_products(db, users)
 
         # Seed system config and knowledge
         seed_system_config(db)
