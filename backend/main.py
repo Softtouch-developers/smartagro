@@ -199,9 +199,9 @@ from integrations.paystack import router as paystack_webhook_router
 
 # ==================== REGISTER ROUTERS ====================
 
-# Public routes (no prefix needed)
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(paystack_webhook_router, prefix="/webhooks", tags=["Webhooks"])
+# Public routes (prefixed with /api to avoid frontend conflict)
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(paystack_webhook_router, prefix="/api/webhooks", tags=["Webhooks"])
 
 # API routes (versioned)
 api_prefix = "/api/v1"

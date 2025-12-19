@@ -46,7 +46,7 @@ services:
     
     # Routes
     routes:
-      - path: /
+      - path: /api
     
     # Environment variables (injected by DO)
     envs:
