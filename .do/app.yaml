@@ -22,8 +22,8 @@ services:
     # Build configuration
     build_command: pip install -r requirements.txt
     
-    # Run configuration
-    run_command: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
+    # Run configuration - retry alembic if DB not ready yet
+    run_command: sleep 10 && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
     
     # Environment
     environment_slug: python

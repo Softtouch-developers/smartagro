@@ -119,10 +119,16 @@ settings = Settings()
 def get_database_url() -> str:
     """Get database URL with modifications if needed"""
     url = settings.DATABASE_URL
+    if not url:
+        return ""
     # Fix for SQLAlchemy 2.0 compatibility
-    if url and url.startswith("postgres://"):
+    if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    return url or ""
+    # Add sslmode for DO managed databases if not already present
+    if "sslmode" not in url:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}sslmode=require"
+    return url
 
 
 def is_production() -> bool:

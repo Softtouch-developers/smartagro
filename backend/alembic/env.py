@@ -17,7 +17,12 @@ from config import get_database_url
 config = context.config
 
 # Override sqlalchemy.url with the one from .env
-config.set_main_option('sqlalchemy.url', get_database_url())
+db_url = get_database_url()
+if not db_url:
+    print("WARNING: DATABASE_URL not set, skipping migrations")
+    sys.exit(0)  # Exit cleanly so deployment continues
+
+config.set_main_option('sqlalchemy.url', db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
