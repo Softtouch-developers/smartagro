@@ -20,10 +20,10 @@ services:
     source_dir: /backend
     
     # Build configuration
-    build_command: pip install -r requirements.txt && alembic upgrade head
+    build_command: pip install -r requirements.txt
     
     # Run configuration
-    run_command: uvicorn main:app --host 0.0.0.0 --port $PORT
+    run_command: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
     
     # Environment
     environment_slug: python
@@ -57,6 +57,8 @@ services:
       - key: REDIS_URL
         scope: RUN_TIME
         type: SECRET
+      - key: KNOWLEDGEBASE_PATH
+        value: ./knowledgebase
       
       # You must set these manually in DO dashboard:
       # - MONGODB_URI
