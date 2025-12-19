@@ -120,7 +120,7 @@ def get_database_url() -> str:
     """Get database URL with modifications if needed"""
     url = settings.DATABASE_URL
     # Fix for SQLAlchemy 2.0 compatibility
-    if url.startswith("postgres://"):
+    if url and url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
     return url
 

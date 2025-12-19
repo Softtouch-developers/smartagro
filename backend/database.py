@@ -15,20 +15,25 @@ logger = logging.getLogger(__name__)
 
 DATABASE_URL = get_database_url()
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=5,
-    max_overflow=2,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    echo=settings.DEBUG
-)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+if DATABASE_URL:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=5,
+        max_overflow=2,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        echo=settings.DEBUG
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+else:
+    engine = None
+    SessionLocal = None
 
 
 def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency for PostgreSQL session"""
+    if SessionLocal is None:
+        raise RuntimeError("Database not initialized")
     db = SessionLocal()
     try:
         yield db
@@ -38,51 +43,62 @@ def get_db() -> Generator[Session, None, None]:
 
 # ==================== MONGODB ====================
 
-try:
-    mongo_client = MongoClient(
-        settings.MONGODB_URI,
-        maxPoolSize=10,
-        minPoolSize=2,
-        serverSelectionTimeoutMS=5000
-    )
-    
-    # Test connection
-    mongo_client.admin.command('ping')
-    
-    mongo_db = mongo_client.smartagro
-    logger.info("✅ Connected to MongoDB")
-    
-except Exception as e:
-    logger.error(f"❌ MongoDB connection failed: {e}")
-    raise
+mongo_client = None
+mongo_db = None
+
+if settings.MONGODB_URI:
+    try:
+        mongo_client = MongoClient(
+            settings.MONGODB_URI,
+            maxPoolSize=10,
+            minPoolSize=2,
+            serverSelectionTimeoutMS=5000
+        )
+        
+        # Test connection
+        # mongo_client.admin.command('ping') # Skip ping on import to avoid blocking
+        
+        mongo_db = mongo_client.smartagro
+        logger.info("✅ MongoDB client initialized")
+        
+    except Exception as e:
+        logger.error(f"❌ MongoDB initialization failed: {e}")
+        # Don't raise here, let it fail at runtime if needed
 
 
 def get_mongo_db():
     """Get MongoDB database instance"""
+    if mongo_db is None:
+        raise RuntimeError("MongoDB not initialized")
     return mongo_db
 
 
 # ==================== REDIS ====================
 
-try:
-    redis_client = redis.from_url(
-        settings.REDIS_URL,
-        decode_responses=True,
-        socket_connect_timeout=5,
-        socket_timeout=5
-    )
-    
-    # Test connection
-    redis_client.ping()
-    logger.info("✅ Connected to Redis")
-    
-except Exception as e:
-    logger.error(f"❌ Redis connection failed: {e}")
-    raise
+redis_client = None
+
+if settings.REDIS_URL:
+    try:
+        redis_client = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5
+        )
+        
+        # Test connection
+        # redis_client.ping() # Skip ping on import
+        logger.info("✅ Redis client initialized")
+        
+    except Exception as e:
+        logger.error(f"❌ Redis initialization failed: {e}")
+        # Don't raise here
 
 
 def get_redis():
     """Get Redis client instance"""
+    if redis_client is None:
+        raise RuntimeError("Redis not initialized")
     return redis_client
 
 
@@ -94,20 +110,28 @@ def init_databases():
     from mongo_models import init_mongodb
     
     # PostgreSQL - Create tables
-    init_db(engine)
-    logger.info("✅ PostgreSQL tables initialized")
+    if engine:
+        init_db(engine)
+        logger.info("✅ PostgreSQL tables initialized")
     
     # MongoDB - Create indexes
-    init_mongodb(settings.MONGODB_URI, "smartagro")
-    logger.info("✅ MongoDB indexes created")
+    if settings.MONGODB_URI:
+        init_mongodb(settings.MONGODB_URI, "smartagro")
+        logger.info("✅ MongoDB indexes created")
     
     # Redis - Test connection
-    redis_client.set("health_check", "ok", ex=60)
-    logger.info("✅ Redis connection verified")
+    if redis_client:
+        try:
+            redis_client.set("health_check", "ok", ex=60)
+            logger.info("✅ Redis connection verified")
+        except Exception as e:
+            logger.warning(f"⚠️ Redis health check failed: {e}")
 
 
 def close_databases():
     """Close all database connections"""
-    mongo_client.close()
-    redis_client.close()
+    if mongo_client:
+        mongo_client.close()
+    if redis_client:
+        redis_client.close()
     logger.info("✅ Database connections closed")
