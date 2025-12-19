@@ -52,9 +52,11 @@ services:
     envs:
       # Auto-injected by DO
       - key: DATABASE_URL
+        value: ${smartagro-postgres.DATABASE_URL}
         scope: RUN_TIME
         type: SECRET
       - key: REDIS_URL
+        value: ${smartagro-valkey.REDIS_URL}
         scope: RUN_TIME
         type: SECRET
       - key: KNOWLEDGEBASE_PATH

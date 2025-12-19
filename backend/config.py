@@ -122,7 +122,7 @@ def get_database_url() -> str:
     # Fix for SQLAlchemy 2.0 compatibility
     if url and url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    return url
+    return url or ""
 
 
 def is_production() -> bool:
