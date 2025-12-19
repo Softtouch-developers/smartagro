@@ -48,7 +48,10 @@ async def get_cart(
         )
 
     totals = CartService.calculate_totals(cart)
-    expires_in = int((cart.expires_at - datetime.utcnow()).total_seconds() / 60)
+    # Calculate time remaining in seconds
+    time_remaining = (cart.expires_at - datetime.utcnow()).total_seconds()
+    time_remaining_seconds = int(max(0, time_remaining))
+    expires_in = int(time_remaining / 60)
 
     # Build farmer location string
     farmer_location = "Unknown"
@@ -69,13 +72,15 @@ async def get_cart(
             CartItemResponse(
                 id=item.id,
                 product_id=item.product_id,
-                product_name=item.product.product_name,
-                product_image=item.product.primary_image_url,
                 quantity=item.quantity,
-                unit_price=item.unit_price_snapshot,
+                unit_price_snapshot=item.unit_price_snapshot,
                 subtotal=item.quantity * item.unit_price_snapshot,
-                unit_of_measure=item.product.unit_of_measure.value,
-                available_quantity=item.product.quantity_available
+                product={
+                    "product_name": item.product.product_name,
+                    "primary_image_url": item.product.primary_image_url,
+                    "unit_of_measure": item.product.unit_of_measure.value,
+                    "quantity_available": item.product.quantity_available
+                }
             )
             for item in cart.items
         ],
@@ -85,7 +90,8 @@ async def get_cart(
         delivery_fee=totals["delivery_fee"],
         total=totals["total"],
         expires_at=cart.expires_at,
-        expires_in_minutes=max(0, expires_in)
+        expires_in_minutes=max(0, expires_in),
+        time_remaining_seconds=time_remaining_seconds
     )
 
 

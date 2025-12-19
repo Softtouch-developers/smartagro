@@ -49,7 +49,8 @@ class UserService:
             "town_city": user.town_city,
             "account_status": user.account_status.value,
             "created_at": user.created_at.isoformat() if user.created_at else None,
-            "last_login": user.last_login.isoformat() if user.last_login else None,
+            "last_login": user.last_login_at.isoformat() if user.last_login_at else None,
+            "current_mode": user.current_mode,
         }
 
         # Add farmer-specific fields

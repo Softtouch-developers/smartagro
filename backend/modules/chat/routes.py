@@ -17,7 +17,7 @@ from modules.chat.schemas import (
     ConversationResponse,
     UploadVoiceNoteResponse
 )
-from modules.storage.service import StorageService
+from modules.storage.service import storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -81,14 +81,20 @@ async def create_conversation(
             if product:
                 product_name = product.product_name
 
+        # Get user names
+        buyer = db.query(User).filter(User.id == buyer_id).first()
+        seller = db.query(User).filter(User.id == seller_id).first()
+
         conversation = ChatService.create_or_get_conversation(
             buyer_id=buyer_id,
             seller_id=seller_id,
             product_id=product_id,
-            product_name=product_name
+            product_name=product_name,
+            buyer_name=buyer.full_name if buyer else None,
+            seller_name=seller.full_name if seller else None
         )
 
-        return ConversationResponse(**conversation, unread_count=0)
+        return ConversationResponse(**conversation)
 
     except HTTPException:
         raise
@@ -120,7 +126,18 @@ async def get_conversations(
             limit=limit
         )
 
-        return [ConversationResponse(**conv) for conv in conversations]
+        # Enrich conversations with user names
+        enriched_conversations = []
+        for conv in conversations:
+            buyer = db.query(User).filter(User.id == conv["buyer_id"]).first()
+            seller = db.query(User).filter(User.id == conv["seller_id"]).first()
+
+            conv["buyer_name"] = buyer.full_name if buyer else None
+            conv["seller_name"] = seller.full_name if seller else None
+
+            enriched_conversations.append(conv)
+
+        return [ConversationResponse(**conv) for conv in enriched_conversations]
 
     except Exception as e:
         logger.error(f"Get conversations error: {e}", exc_info=True)
@@ -293,6 +310,52 @@ async def get_unread_count(
         )
 
 
+@router.post("/upload/image", response_model=UploadVoiceNoteResponse)
+async def upload_chat_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload an image for chat
+
+    **Requires authentication**
+
+    - Accepts: JPEG, PNG, WEBP
+    - Max size: 5MB
+    - Returns URL to use in send_message endpoint
+    """
+    try:
+        # Validate file type
+        allowed_types = ["image/jpeg", "image/png", "image/webp"]
+        if not file.content_type or file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only image files are allowed (JPEG, PNG, WEBP)"
+            )
+
+        # Upload image
+        file_url = await storage_service.upload_image(
+            file=file,
+            folder="chat_images"
+        )
+
+        return UploadVoiceNoteResponse(
+            success=True,
+            voice_note_url=file_url,  # Reusing the same response model field for URL
+            message="Image uploaded successfully"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat image upload error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload image: {str(e)}"
+        )
+
+
 @router.post("/upload/voice", response_model=UploadVoiceNoteResponse)
 async def upload_voice_note(
     file: UploadFile = File(...),
@@ -323,9 +386,8 @@ async def upload_voice_note(
             )
 
         # Upload voice note
-        file_url = await StorageService.upload_voice_note(
-            file=file,
-            user_id=current_user.id
+        file_url = await storage_service.upload_voice_note(
+            file=file
         )
 
         return UploadVoiceNoteResponse(

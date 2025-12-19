@@ -10,7 +10,7 @@ import logging
 from database import get_db
 from models import User
 from modules.auth.dependencies import get_current_verified_user
-from modules.storage.service import StorageService
+from modules.storage.service import storage_service
 from modules.storage.schemas import (
     FileUploadResponse,
     MessageResponse
@@ -48,9 +48,9 @@ async def upload_image(
             )
 
         # Upload image
-        file_url = await StorageService.upload_image(
+        file_url = await storage_service.upload_image(
             file=file,
-            user_id=current_user.id
+            folder="products" # Default folder for generic upload
         )
 
         return FileUploadResponse(
@@ -96,7 +96,7 @@ async def upload_voice_note(
             )
 
         # Upload voice note
-        file_url = await StorageService.upload_voice_note(
+        file_url = await storage_service.upload_voice_note(
             file=file,
             user_id=current_user.id
         )
@@ -160,16 +160,24 @@ async def upload_document(
 
         # If it's an image, use image upload (with optimization)
         if file.content_type in image_types:
-            file_url = await StorageService.upload_image(
+            file_url = await storage_service.upload_image(
                 file=file,
-                user_id=current_user.id
+                folder="documents"
             )
         else:
-            # For documents, use voice note upload (which handles generic files)
-            file_url = await StorageService.upload_voice_note(
-                file=file,
-                user_id=current_user.id
+            # For documents, use generic file upload (which handles generic files)
+            # Note: upload_voice_note is for audio only, we should use upload_file for generic docs
+            # But since upload_file returns a dict, we need to handle it.
+            # Let's check if there is a generic upload method.
+            # Looking at service.py, there is upload_file.
+            
+            result = await storage_service.upload_file(
+                file_bytes=await file.read(),
+                filename=file.filename,
+                content_type=file.content_type,
+                folder="documents"
             )
+            file_url = result["url"]
 
         return FileUploadResponse(
             success=True,
@@ -236,7 +244,7 @@ async def delete_file(
             )
 
         # Delete file
-        success = await StorageService.delete_file(file_path)
+        success = storage_service.delete_file(file_path)
 
         if not success:
             raise HTTPException(

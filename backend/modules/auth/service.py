@@ -74,7 +74,7 @@ class AuthService:
             phone_verified=False,
             is_verified=False,
             can_buy=True,  # All users can buy by default
-            current_mode=user_type,  # Start in their primary mode
+            current_mode=user_type.value if hasattr(user_type, "value") else user_type,  # Start in their primary mode
             **kwargs
         )
 
@@ -258,6 +258,7 @@ class AuthService:
         """
         # Get user by email or phone
         user = None
+
         if email:
             user = db.query(User).filter(User.email == email).first()
         elif phone_number:
@@ -273,6 +274,10 @@ class AuthService:
         # Check if account is active
         if not user.is_active:
             return False, "Account has been suspended", None
+
+        # Initialize current_mode if not set
+        if user.current_mode is None:
+            user.current_mode = user.user_type.value
 
         # Update last login
         user.last_login_at = datetime.utcnow()
@@ -337,17 +342,24 @@ class AuthService:
         payload = verify_token(refresh_token, expected_type="refresh")
 
         if not payload:
+            logger.warning(f"Refresh token verification failed. Token: {refresh_token[:10]}...")
             return False, "Invalid or expired refresh token", None
 
         user_id = payload.get("sub")
         if not user_id:
+            logger.warning("Refresh token payload missing 'sub'")
             return False, "Invalid token payload", None
 
         # Check if refresh token exists in Redis
         redis_client = get_redis()
         stored_token = redis_client.get(f"refresh_token:{user_id}")
 
-        if not stored_token or stored_token != refresh_token:
+        if not stored_token:
+            logger.warning(f"No stored refresh token found for user {user_id}")
+            return False, "Refresh token has been revoked", None
+            
+        if stored_token != refresh_token:
+            logger.warning(f"Stored token mismatch for user {user_id}. Stored: {stored_token[:10]}... Incoming: {refresh_token[:10]}...")
             return False, "Refresh token has been revoked", None
 
         # Get user from database (using a new session)
@@ -396,23 +408,32 @@ class AuthService:
         return True
 
     @staticmethod
-    async def initiate_password_reset(db: Session, email: str) -> Tuple[bool, str]:
+    async def initiate_password_reset(
+        db: Session,
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None
+    ) -> Tuple[bool, str]:
         """
         Initiate password reset process
 
         Args:
             db: Database session
-            email: User email
+            email: User email (optional)
+            phone_number: User phone number (optional)
 
         Returns:
             Tuple of (success: bool, message: str)
         """
         # Get user
-        user = db.query(User).filter(User.email == email).first()
+        user = None
+        if email:
+            user = db.query(User).filter(User.email == email).first()
+        elif phone_number:
+            user = db.query(User).filter(User.phone_number == phone_number).first()
 
         if not user:
-            # Don't reveal if email exists or not (security)
-            return True, "If the email exists, a password reset code has been sent"
+            # Don't reveal if user exists or not (security)
+            return True, "If the account exists, a password reset code has been sent"
 
         # Generate and send OTP
         result = await AuthService.send_verification_otp(db, user.id, OTPType.PASSWORD_RESET)
@@ -420,31 +441,80 @@ class AuthService:
         return result.get("success", False), "Password reset code sent to your phone"
 
     @staticmethod
-    def reset_password(
+    def verify_reset_otp(
         db: Session,
-        user_id: int,
         otp_code: str,
-        new_password: str
-    ) -> Tuple[bool, str]:
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None
+    ) -> Tuple[bool, str, Optional[str]]:
         """
-        Reset user password with OTP verification
+        Verify reset OTP and generate reset token
 
         Args:
             db: Database session
-            user_id: User ID
             otp_code: OTP code
+            email: User email (optional)
+            phone_number: User phone number (optional)
+
+        Returns:
+            Tuple of (success: bool, message: str, reset_token: Optional[str])
+        """
+        # Get user
+        user = None
+        if email:
+            user = db.query(User).filter(User.email == email).first()
+        elif phone_number:
+            user = db.query(User).filter(User.phone_number == phone_number).first()
+
+        if not user:
+            return False, "Invalid account or OTP", None
+
+        # Verify OTP
+        success, message, _ = AuthService.verify_otp(
+            db, user.id, otp_code, OTPType.PASSWORD_RESET
+        )
+
+        if not success:
+            return False, message, None
+
+        # Generate reset token (short-lived JWT)
+        reset_token = create_access_token(
+            data={"sub": str(user.id), "type": "password_reset"},
+            expires_delta=timedelta(minutes=settings.RESET_PASSWORD_TOKEN_EXPIRE_MINUTES)
+        )
+
+        return True, "OTP verified successfully", reset_token
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        token: str,
+        new_password: str
+    ) -> Tuple[bool, str]:
+        """
+        Reset user password with reset token
+
+        Args:
+            db: Database session
+            token: Reset token
             new_password: New password
 
         Returns:
             Tuple of (success: bool, message: str)
         """
-        # Verify OTP
-        success, message, user = AuthService.verify_otp(
-            db, user_id, otp_code, OTPType.PASSWORD_RESET
-        )
+        # Verify token
+        payload = verify_token(token, expected_type="password_reset")
+        if not payload:
+            return False, "Invalid or expired reset token"
 
-        if not success:
-            return False, message
+        user_id = payload.get("sub")
+        if not user_id:
+            return False, "Invalid token payload"
+
+        # Get user
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user:
+            return False, "User not found"
 
         # Hash new password
         password_hash = hash_password(new_password)

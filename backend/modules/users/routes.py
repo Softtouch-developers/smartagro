@@ -12,10 +12,12 @@ from modules.auth.dependencies import (
     get_current_verified_user,
     get_current_admin
 )
+from modules.auth.schemas import MessageResponse
 from modules.users.service import UserService
 from modules.users.schemas import (
     UpdateProfileRequest,
     DeleteAccountRequest,
+    SwitchModeRequest,
     UserProfileResponse,
     DeleteAccountResponse
 )
@@ -155,3 +157,82 @@ async def admin_get_user_transaction_status(
     """
     transaction_status = UserService.check_active_transactions(db, user_id)
     return transaction_status
+
+
+# ==================== MODE SWITCHING ENDPOINTS ====================
+
+@router.post("/me/switch-mode", response_model=UserProfileResponse)
+async def switch_mode(
+    request: SwitchModeRequest,
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Switch user's active mode between FARMER and BUYER
+
+    - **target_mode**: Target mode ('FARMER' or 'BUYER')
+
+    Rules:
+    - Farmers can switch to BUYER mode if can_buy=True
+    - Buyers cannot switch to FARMER mode (they're not farmers)
+    - Must switch back to FARMER mode to list/manage products
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    target_mode = request.target_mode.upper()
+
+    if target_mode not in ["FARMER", "BUYER"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_MODE",
+                "message": "Invalid mode. Use 'FARMER' or 'BUYER'"
+            }
+        )
+
+    if target_mode == "FARMER":
+        if current_user.user_type != UserType.FARMER:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "NOT_A_FARMER",
+                    "message": "Only farmers can switch to farmer mode"
+                }
+            )
+
+    if target_mode == "BUYER":
+        if not current_user.can_buy:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "BUYING_DISABLED",
+                    "message": "Buying is disabled for your account"
+                }
+            )
+
+    current_user.current_mode = target_mode
+    db.commit()
+    db.refresh(current_user)
+
+    logger.info(f"User {current_user.id} switched to {target_mode} mode")
+
+    # Return updated user profile
+    return UserService.get_user_profile(db, current_user.id)
+
+
+@router.get("/me/mode")
+async def get_current_mode(current_user: User = Depends(get_current_verified_user)):
+    """
+    Get user's current active mode
+
+    Returns:
+    - **current_mode**: Current active mode (FARMER or BUYER)
+    - **user_type**: User's primary type
+    - **can_buy**: Whether user can act as a buyer
+    """
+    return {
+        "current_mode": current_user.current_mode or current_user.user_type.value,
+        "user_type": current_user.user_type.value,
+        "can_buy": current_user.can_buy
+    }

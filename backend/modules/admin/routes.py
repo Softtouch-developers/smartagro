@@ -232,10 +232,7 @@ async def get_dashboard_stats(
         # ==================== PRODUCT METRICS ====================
         total_products = db.query(func.count(Product.id)).scalar()
         active_products = db.query(func.count(Product.id)).filter(
-            and_(
-                Product.is_active == True,
-                Product.status == ProductStatus.AVAILABLE
-            )
+            Product.status == ProductStatus.AVAILABLE
         ).scalar()
         featured_products = db.query(func.count(Product.id)).filter(Product.is_featured == True).scalar()
 
@@ -405,7 +402,7 @@ class UserListResponse(BaseModel):
     """User list item response"""
     id: int
     full_name: str
-    email: str
+    email: Optional[str] = None
     phone_number: str
     user_type: str
     is_verified: bool

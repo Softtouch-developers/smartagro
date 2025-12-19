@@ -15,6 +15,7 @@ from .schemas import (
     LoginRequest, LoginResponse,
     RefreshTokenRequest, TokenResponse,
     ForgotPasswordRequest, ResetPasswordRequest,
+    VerifyResetOtpRequest, VerifyResetOtpResponse,
     UserResponse, MessageResponse
 )
 from .service import AuthService
@@ -315,17 +316,19 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
     """
     Initiate password reset
 
-    - **email**: User email address
+    - **email**: User email (optional)
+    - **phone_number**: User phone number (optional)
 
     Sends OTP code to user's phone for password reset
     """
     try:
         success, message = await AuthService.initiate_password_reset(
             db=db,
-            email=request.email
+            email=request.email,
+            phone_number=request.phone_number
         )
 
-        # Always return success to prevent email enumeration
+        # Always return success to prevent enumeration
         return MessageResponse(
             success=True,
             message=message
@@ -342,23 +345,23 @@ async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(
         )
 
 
-@router.post("/reset-password", response_model=MessageResponse)
-async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+@router.post("/verify-reset-otp", response_model=VerifyResetOtpResponse)
+async def verify_reset_otp(request: VerifyResetOtpRequest, db: Session = Depends(get_db)):
     """
-    Reset password with OTP
+    Verify reset OTP and get reset token
 
-    - **user_id**: User ID
+    - **email**: User email (optional)
+    - **phone_number**: User phone number (optional)
     - **otp_code**: OTP code received via SMS
-    - **new_password**: New password (min 8 chars, must contain uppercase, lowercase, digit)
 
-    Resets password and invalidates all existing tokens
+    Returns a short-lived reset token if verification is successful
     """
     try:
-        success, message = AuthService.reset_password(
+        success, message, reset_token = AuthService.verify_reset_otp(
             db=db,
-            user_id=request.user_id,
-            otp_code=request.otp_code,
-            new_password=request.new_password
+            email=request.email,
+            phone_number=request.phone_number,
+            otp_code=request.otp_code
         )
 
         if not success:
@@ -366,6 +369,50 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "code": "OTP_INVALID",
+                    "message": message
+                }
+            )
+
+        return VerifyResetOtpResponse(
+            success=True,
+            message=message,
+            reset_token=reset_token
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Verify reset OTP error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "INTERNAL_ERROR",
+                "message": "Failed to verify OTP. Please try again."
+            }
+        )
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Reset password with token
+
+    - **token**: Reset token received from verify-reset-otp
+    - **new_password**: New password (min 8 chars, must contain uppercase, lowercase, digit)
+
+    Resets password and invalidates all existing tokens
+    """
+    try:
+        success, message = AuthService.reset_password(
+            db=db,
+            token=request.token,
+            new_password=request.new_password
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "INVALID_TOKEN",
                     "message": message
                 }
             )
@@ -398,80 +445,4 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return UserResponse.from_orm(current_user)
 
 
-# ==================== MODE SWITCHING ENDPOINTS ====================
 
-@router.post("/switch-mode", response_model=MessageResponse)
-async def switch_mode(
-    target_mode: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Switch user's active mode between FARMER and BUYER
-
-    - **target_mode**: Target mode ('FARMER' or 'BUYER')
-
-    Rules:
-    - Farmers can switch to BUYER mode if can_buy=True
-    - Buyers cannot switch to FARMER mode (they're not farmers)
-    - Must switch back to FARMER mode to list/manage products
-    """
-    from models import UserType
-
-    target_mode = target_mode.upper()
-
-    if target_mode not in ["FARMER", "BUYER"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "INVALID_MODE",
-                "message": "Invalid mode. Use 'FARMER' or 'BUYER'"
-            }
-        )
-
-    if target_mode == "FARMER":
-        if current_user.user_type != UserType.FARMER:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "NOT_A_FARMER",
-                    "message": "Only farmers can switch to farmer mode"
-                }
-            )
-
-    if target_mode == "BUYER":
-        if not current_user.can_buy:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "BUYING_DISABLED",
-                    "message": "Buying is disabled for your account"
-                }
-            )
-
-    current_user.current_mode = target_mode
-    db.commit()
-
-    logger.info(f"User {current_user.id} switched to {target_mode} mode")
-
-    return MessageResponse(
-        success=True,
-        message=f"Switched to {target_mode} mode"
-    )
-
-
-@router.get("/current-mode")
-async def get_current_mode(current_user: User = Depends(get_current_user)):
-    """
-    Get user's current active mode
-
-    Returns:
-    - **current_mode**: Current active mode (FARMER or BUYER)
-    - **user_type**: User's primary type
-    - **can_buy**: Whether user can act as a buyer
-    """
-    return {
-        "current_mode": current_user.current_mode or current_user.user_type.value,
-        "user_type": current_user.user_type.value,
-        "can_buy": current_user.can_buy
-    }

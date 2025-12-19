@@ -76,7 +76,7 @@ async def create_order(
 
 @router.get("", response_model=OrderListResponse)
 async def list_orders(
-    status: Optional[str] = None,
+    order_status: Optional[str] = Query(None, alias="status"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_verified_user),
@@ -100,7 +100,7 @@ async def list_orders(
             db=db,
             user_id=current_user.id,
             user_type=current_user.user_type.value,
-            status=status,
+            status=order_status,
             page=page,
             page_size=page_size
         )

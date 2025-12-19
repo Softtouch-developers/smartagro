@@ -47,6 +47,7 @@ class ProductStatus(enum.Enum):
     RESERVED = "RESERVED"
     EXPIRED = "EXPIRED"
     DELETED = "DELETED"
+    OUT_OF_STOCK = "OUT_OF_STOCK"
 
 class UnitOfMeasure(enum.Enum):
     KG = "KG"
@@ -291,6 +292,7 @@ class Product(Base):
     
     # Quality & Certification
     is_organic = Column(Boolean, default=False, nullable=False)
+    variety = Column(String(100), nullable=True)
     certification_details = Column(Text, nullable=True)
     
     # Status & Availability

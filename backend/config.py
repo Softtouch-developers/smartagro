@@ -50,14 +50,15 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    RESET_PASSWORD_TOKEN_EXPIRE_MINUTES: int = 15
     
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
     
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
-    RATE_LIMIT_PER_MINUTE: int = 60
-    AUTH_RATE_LIMIT_PER_MINUTE: int = 5
+    RATE_LIMIT_PER_MINUTE: int = 100
+    AUTH_RATE_LIMIT_PER_MINUTE: int = 30
     
     # Escrow
     PLATFORM_FEE_PERCENTAGE: float = 5.0

@@ -36,14 +36,16 @@ class MessageResponse(BaseModel):
 
 class ConversationResponse(BaseModel):
     """Conversation response"""
-    id: str
+    conversation_id: str
     buyer_id: int
     seller_id: int
-    related_product_id: Optional[int] = None
+    buyer_name: Optional[str] = None
+    seller_name: Optional[str] = None
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
     last_message: Optional[str] = None
-    last_message_at: Optional[datetime] = None
-    unread_count: int
-    created_at: datetime
+    unread_count: int = 0
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

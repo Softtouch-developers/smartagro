@@ -60,6 +60,18 @@ class DeleteAccountRequest(BaseModel):
         }
 
 
+class SwitchModeRequest(BaseModel):
+    """Request model for switching user mode"""
+    target_mode: str = Field(..., pattern="^(FARMER|BUYER|farmer|buyer)$", description="Target mode (FARMER or BUYER)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "target_mode": "FARMER"
+            }
+        }
+
+
 class UserProfileResponse(BaseModel):
     """Response model for user profile"""
     id: int
