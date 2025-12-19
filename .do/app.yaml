@@ -84,9 +84,9 @@ databases:
     db_user: smartagro_user
     size: db-s-1vcpu-1gb  # 1GB RAM, 10GB storage, $15/month
   
-  # Redis
-  - name: smartagro-redis
-    engine: REDIS
+  # Valkey (Redis-compatible)
+  - name: smartagro-valkey
+    engine: REDIS  # Valkey uses REDIS engine type in DO
     version: "7"
     production: false  # Set to true for production
     size: db-s-1vcpu-1gb  # 1GB RAM, $15/month
