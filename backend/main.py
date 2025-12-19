@@ -48,7 +48,11 @@ async def lifespan(app: FastAPI):
     if missing_secrets:
         error_msg = f"❌ Missing required environment variables: {', '.join(missing_secrets)}"
         logger.error(error_msg)
+        print(error_msg)  # Also print to stdout for DO logs
         raise ValueError(error_msg)
+
+    # Log successful config (without secrets)
+    print(f"✅ Config loaded: ENVIRONMENT={settings.ENVIRONMENT}, DATABASE_URL=set, REDIS_URL=set")
 
     
     try:
@@ -160,7 +164,8 @@ async def health_check():
         logger.error(f"Redis health check failed: {e}")
         redis_healthy = False
     
-    all_healthy = postgres_healthy and mongo_healthy and redis_healthy
+    # MongoDB is optional - only postgres and redis are required
+    all_healthy = postgres_healthy and redis_healthy
     
     return JSONResponse(
         status_code=200 if all_healthy else 503,

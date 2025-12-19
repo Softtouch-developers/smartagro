@@ -79,11 +79,14 @@ redis_client = None
 
 if settings.REDIS_URL:
     try:
+        # For DO managed Redis with rediss:// (SSL), skip cert verification
+        ssl_cert_reqs = None if settings.REDIS_URL.startswith("rediss://") else None
         redis_client = redis.from_url(
             settings.REDIS_URL,
             decode_responses=True,
             socket_connect_timeout=5,
-            socket_timeout=5
+            socket_timeout=5,
+            ssl_cert_reqs=ssl_cert_reqs
         )
         
         # Test connection
@@ -107,17 +110,20 @@ def get_redis():
 def init_databases():
     """Initialize all database connections"""
     from models import Base, init_db
-    from mongo_models import init_mongodb
-    
+
     # PostgreSQL - Create tables
     if engine:
         init_db(engine)
         logger.info("✅ PostgreSQL tables initialized")
-    
-    # MongoDB - Create indexes
+
+    # MongoDB - Create indexes (optional)
     if settings.MONGODB_URI:
-        init_mongodb(settings.MONGODB_URI, "smartagro")
-        logger.info("✅ MongoDB indexes created")
+        try:
+            from mongo_models import init_mongodb
+            init_mongodb(settings.MONGODB_URI, "smartagro")
+            logger.info("✅ MongoDB indexes created")
+        except Exception as e:
+            logger.warning(f"⚠️ MongoDB initialization skipped: {e}")
     
     # Redis - Test connection
     if redis_client:
