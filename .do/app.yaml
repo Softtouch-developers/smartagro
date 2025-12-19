@@ -78,8 +78,8 @@ databases:
   - name: smartagro-postgres
     engine: PG
     version: "15"
-    production: false  # Set to true for production
-    cluster_name: smartagro-db-cluster
+    production: true  # Set to true for production
+    cluster_name: smartagro-postgres
     db_name: smartagro
     db_user: smartagro_user
     size: db-s-1vcpu-1gb  # 1GB RAM, 10GB storage, $15/month
