@@ -89,6 +89,7 @@ databases:
     engine: REDIS  # Valkey uses REDIS engine type in DO
     version: "7"
     production: true  # Set to true for production
+    cluster_name: smartagro-redis-cluster
     size: db-s-1vcpu-1gb  # 1GB RAM, $15/month
 
 static_sites:
