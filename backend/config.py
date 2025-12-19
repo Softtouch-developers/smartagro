@@ -13,23 +13,23 @@ class Settings(BaseSettings):
     APP_NAME: str = "SmartAgro"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
-    SECRET_KEY: str
+    SECRET_KEY: Optional[str] = None
     
     # Database URLs
-    DATABASE_URL: str
-    MONGODB_URI: str
+    DATABASE_URL: Optional[str] = None
+    MONGODB_URI: Optional[str] = None
     PROD_MONGODB_URI: Optional[str] = None
-    REDIS_URL: str
+    REDIS_URL: Optional[str] = None
 
     # External APIs
-    PAYSTACK_SECRET_KEY: str
-    PAYSTACK_PUBLIC_KEY: str
+    PAYSTACK_SECRET_KEY: Optional[str] = None
+    PAYSTACK_PUBLIC_KEY: Optional[str] = None
     PAYSTACK_CALLBACK_URL: Optional[str] = None  # Will be set dynamically based on environment
-    MNOTIFY_API_KEY: str
+    MNOTIFY_API_KEY: Optional[str] = None
     MNOTIFY_GATEWAY_URL: str = "https://api.mnotify.com/api/sms/quick"
     MNOTIFY_DEFAULT_SENDER: str = "SmartAgro"
-    OPENROUTER_API_KEY: str
-    OPENWEATHER_API_KEY: str
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENWEATHER_API_KEY: Optional[str] = None
  
     # Storage configuration
     STORAGE_TYPE: str = "local"  # or "spaces" for production
@@ -38,15 +38,15 @@ class Settings(BaseSettings):
     LOCAL_STORAGE_PATH: str = "./uploads"  # Relative to backend folder
     
     # DO Spaces
-    SPACES_ACCESS_KEY: str
-    SPACES_SECRET_KEY: str
-    SPACES_BUCKET: str
+    SPACES_ACCESS_KEY: Optional[str] = None
+    SPACES_SECRET_KEY: Optional[str] = None
+    SPACES_BUCKET: Optional[str] = None
     SPACES_REGION: str = "sgp1"
-    SPACES_ENDPOINT: str
+    SPACES_ENDPOINT: Optional[str] = None
     SPACES_CDN_URL: Optional[str] = None
     
     # JWT
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: Optional[str] = None
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

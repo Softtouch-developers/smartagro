@@ -40,6 +40,17 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(f"🚀 Starting {settings.APP_NAME} in {settings.ENVIRONMENT} mode")
     
+    # Validate required secrets at runtime
+    required_secrets = [
+        "SECRET_KEY", "DATABASE_URL", "REDIS_URL", "JWT_SECRET_KEY"
+    ]
+    missing_secrets = [secret for secret in required_secrets if not getattr(settings, secret)]
+    if missing_secrets:
+        error_msg = f"❌ Missing required environment variables: {', '.join(missing_secrets)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    
     try:
         # Initialize databases
         init_databases()
