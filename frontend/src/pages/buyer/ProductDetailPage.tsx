@@ -330,7 +330,7 @@ const ProductDetailPage: React.FC = () => {
         title="Start a new cart?"
         message="Your cart contains items from a different farmer. Adding this item will clear your current cart. Do you want to proceed?"
         confirmText="Clear and Add"
-        variant="primary"
+        variant="default"
       />
     </div>
   );

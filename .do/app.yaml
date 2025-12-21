@@ -20,10 +20,10 @@ services:
     source_dir: /backend
     
     # Build configuration
-    build_command: pip install -r requirements.txt && alembic upgrade head
+    build_command: pip install --upgrade pip && pip install -r requirements.txt
     
-    # Run configuration
-    run_command: uvicorn main:app --host 0.0.0.0 --port $PORT
+    # Run configuration - retry alembic if DB not ready yet
+    run_command: sleep 10 && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
     
     # Environment
     environment_slug: python
@@ -46,17 +46,21 @@ services:
     
     # Routes
     routes:
-      - path: /
+      - path: /api
     
     # Environment variables (injected by DO)
     envs:
       # Auto-injected by DO
       - key: DATABASE_URL
+        value: ${smartagro-postgres.DATABASE_URL}
         scope: RUN_TIME
         type: SECRET
       - key: REDIS_URL
+        value: ${smartagro-valkey.REDIS_URL}
         scope: RUN_TIME
         type: SECRET
+      - key: KNOWLEDGEBASE_PATH
+        value: ./knowledgebase
       
       # You must set these manually in DO dashboard:
       # - MONGODB_URI
@@ -78,17 +82,18 @@ databases:
   - name: smartagro-postgres
     engine: PG
     version: "15"
-    production: false  # Set to true for production
-    cluster_name: smartagro-db-cluster
+    production: true  # Set to true for production
+    cluster_name: smartagro-postgres
     db_name: smartagro
     db_user: smartagro_user
     size: db-s-1vcpu-1gb  # 1GB RAM, 10GB storage, $15/month
   
-  # Redis
-  - name: smartagro-redis
-    engine: REDIS
+  # Valkey (Redis-compatible)
+  - name: smartagro-valkey
+    engine: REDIS  # Valkey uses REDIS engine type in DO
     version: "7"
-    production: false  # Set to true for production
+    production: true  # Set to true for production
+    cluster_name: smartagro-redis
     size: db-s-1vcpu-1gb  # 1GB RAM, $15/month
 
 static_sites:

@@ -40,6 +40,21 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(f"🚀 Starting {settings.APP_NAME} in {settings.ENVIRONMENT} mode")
     
+    # Validate required secrets at runtime
+    required_secrets = [
+        "SECRET_KEY", "DATABASE_URL", "REDIS_URL", "JWT_SECRET_KEY"
+    ]
+    missing_secrets = [secret for secret in required_secrets if not getattr(settings, secret)]
+    if missing_secrets:
+        error_msg = f"❌ Missing required environment variables: {', '.join(missing_secrets)}"
+        logger.error(error_msg)
+        print(error_msg)  # Also print to stdout for DO logs
+        raise ValueError(error_msg)
+
+    # Log successful config (without secrets)
+    print(f"✅ Config loaded: ENVIRONMENT={settings.ENVIRONMENT}, DATABASE_URL=set, REDIS_URL=set")
+
+    
     try:
         # Initialize databases
         init_databases()
@@ -149,7 +164,8 @@ async def health_check():
         logger.error(f"Redis health check failed: {e}")
         redis_healthy = False
     
-    all_healthy = postgres_healthy and mongo_healthy and redis_healthy
+    # MongoDB is optional - only postgres and redis are required
+    all_healthy = postgres_healthy and redis_healthy
     
     return JSONResponse(
         status_code=200 if all_healthy else 503,
@@ -199,9 +215,9 @@ from integrations.paystack import router as paystack_webhook_router
 
 # ==================== REGISTER ROUTERS ====================
 
-# Public routes (no prefix needed)
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(paystack_webhook_router, prefix="/webhooks", tags=["Webhooks"])
+# Public routes (prefixed with /api to avoid frontend conflict)
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(paystack_webhook_router, prefix="/api/webhooks", tags=["Webhooks"])
 
 # API routes (versioned)
 api_prefix = "/api/v1"
