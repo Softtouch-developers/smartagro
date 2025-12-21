@@ -1,0 +1,27 @@
+Method,Name,Error,Occurrences
+GET,/ [GET],HTTPError('504 Server Error: Gateway Timeout for url: / [GET]'),6
+GET,/docs [GET],HTTPError('504 Server Error: Gateway Timeout for url: /docs [GET]'),5
+GET,/api/v1/products [GET],HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products [GET]'),6839
+GET,/api/v1/products?region [GET],RemoteDisconnected('Remote end closed connection without response'),1
+GET,/api/v1/products [GET],HTTPError('504 Server Error: Gateway Timeout for url: /api/v1/products [GET]'),143
+GET,/docs [GET],RemoteDisconnected('Remote end closed connection without response'),2
+GET,/api/v1/products [GET],RemoteDisconnected('Remote end closed connection without response'),38
+GET,/api/v1/products?category [GET],RemoteDisconnected('Remote end closed connection without response'),1
+GET,/docs [GET],HTTPError('500 Server Error: Internal Server Error for url: /docs [GET]'),424
+GET,/api/v1/products/featured [GET],RemoteDisconnected('Remote end closed connection without response'),7
+GET,/api/v1/products [GET - for detail],HTTPError('504 Server Error: Gateway Timeout for url: /api/v1/products [GET - for detail]'),44
+GET,/api/v1/products/search [GET],HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products/search [GET]'),2349
+GET,/api/v1/products/featured [GET],HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products/featured [GET]'),2205
+GET,/api/v1/products/featured [GET],HTTPError('504 Server Error: Gateway Timeout for url: /api/v1/products/featured [GET]'),26
+GET,/api/v1/products [GET - for detail],HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products [GET - for detail]'),1314
+GET,/ [GET],HTTPError('500 Server Error: Internal Server Error for url: / [GET]'),429
+GET,/api/v1/products?category [GET],HTTPError('504 Server Error: Gateway Timeout for url: /api/v1/products?category [GET]'),7
+GET,/api/v1/products [GET],HTTPError('502 Server Error: Bad Gateway for url: /api/v1/products [GET]'),1
+GET,/api/v1/products?region [GET],HTTPError('504 Server Error: Gateway Timeout for url: /api/v1/products?region [GET]'),8
+GET,/api/v1/products?region [GET],HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products?region [GET]'),895
+GET,/api/v1/products/search [GET],RemoteDisconnected('Remote end closed connection without response'),2
+GET,/api/v1/products/search [GET],HTTPError('504 Server Error: Gateway Timeout for url: /api/v1/products/search [GET]'),18
+GET,/health [GET],HTTPError('504 Server Error: Gateway Timeout for url: /health [GET]'),7
+GET,/api/v1/products [GET - for detail],RemoteDisconnected('Remote end closed connection without response'),8
+GET,/health [GET],RemoteDisconnected('Remote end closed connection without response'),5
+GET,/api/v1/products?category [GET],HTTPError('500 Server Error: Internal Server Error for url: /api/v1/products?category [GET]'),1616
