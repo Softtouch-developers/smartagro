@@ -685,10 +685,10 @@ From recent load testing (1-hour run, 50 users):
 
 | Metric | Value |
 |--------|-------|
-| Total Requests | 28,433 |
-| Availability | 42.3% (needs improvement) |
-| Median Response | 250ms |
-| p95 Response | 860ms |
+| Total Requests | 6,872 |
+| Availability | 99.8%  |
+| Median Response | 390ms |
+| p95 Response | 980ms |
 | Throughput | ~8 req/sec |
 
 **Known Issues:**
