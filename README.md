@@ -1,4 +1,4 @@
-# SmartAgro Backend API
+# SmartAgro
 
 A digital marketplace platform connecting Ghanaian farmers directly with buyers to reduce post-harvest losses.
 
@@ -10,108 +10,92 @@ A digital marketplace platform connecting Ghanaian farmers directly with buyers 
 
 ## 🏗️ Architecture
 
-- **Pattern:** Modular Monolithic Architecture
-- **Backend:** FastAPI (Python 3.11+)
+### Frontend
+- **Framework:** React 19 (via Vite)
+- **Language:** TypeScript
+- **Styling:** TailwindCSS
+- **State Management:** Zustand, React Query
+- **UI Components:** Radix UI, Lucide React
+
+### Backend
+- **Framework:** FastAPI (Python 3.11+)
 - **Databases:** 
   - PostgreSQL 15 (structured data + pgvector)
   - MongoDB Atlas (flexible documents)
   - Redis (sessions, cache)
-- **Storage:** DigitalOcean Spaces
-- **Deployment:** DigitalOcean App Platform
+- **Storage:** GCP Storage
+- **Deployment:** GCP Cloud Run
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.11+
+- Node.js & npm
 - Docker & Docker Compose (for local databases)
 - Git
 
-**Note:** PostgreSQL 15, MongoDB 7, and Redis 7 are provided via Docker Compose. No need to install them separately.
+### 1. Backend Setup
 
-### Local Setup
+The backend handles the API, database connections, and business logic.
+
 ```bash
-# 1. Clone repository
-git clone https://github.com/nanayeb34/smartagro.git
-cd smartagro/backend
+# Navigate to backend directory
+cd backend
 
-# 2. Create virtual environment
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 3. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 4. Set up environment variables
+# Set up environment variables
 cp .env.example .env
-# Edit .env with your API keys (Paystack, mNotify, OpenRouter, OpenWeather)
-# Database URLs are pre-configured for docker-compose
+# Edit .env with your API keys
 
-# 5. Start databases with Docker
+# Start databases with Docker
 docker-compose up -d
-# This starts PostgreSQL (port 5433), MongoDB (port 27017), and Redis (port 6379)
-# Wait ~10 seconds for services to initialize
 
-# 6. Run database migrations
+# Run database migrations
 alembic upgrade head
 
-# 7. (Optional) Seed test data
-# Set SEED_DATABASE=True in .env, then restart server
-
-# 8. Start development server
+# Start development server
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Visit http://localhost:8000/docs for API documentation.
+Backend API will be available at `http://localhost:8000`.  
+API Documentation: `http://localhost:8000/docs`.
 
-### Verify Setup
+### 2. Frontend Setup
+
+The frontend provides the user interface for Farmers, Buyers, and Admins.
+
 ```bash
-# Check all services are running
-docker-compose ps
+# Navigate to frontend directory
+cd frontend
 
-# Test health endpoint
-curl http://localhost:8000/health
+# Install dependencies
+npm install
 
-# Check database connections
-docker-compose logs postgres
-docker-compose logs mongodb
+# Start development server
+npm run dev
 ```
 
-### Stopping Services
-```bash
-# Stop all containers
-docker-compose down
-
-# Stop and remove volumes (reset databases)
-docker-compose down -v
-```
+Frontend will be available at `http://localhost:5173`.
 
 ## 📁 Project Structure
+
 ```
-backend/
-├── main.py                 # FastAPI application
-├── config.py               # Configuration
-├── database.py             # Database connections
-├── models.py              # PostgreSQL models
-├── mongo_models.py         # MongoDB schemas
-├── requirements.txt        # Dependencies
-│
-├── modules/                # Feature modules
-│   ├── auth/              # Authentication
-│   ├── products/          # Product management
-│   ├── orders/            # Order processing
-│   ├── escrow/            # Payment & escrow
-│   ├── chat/              # Messaging
-│   ├── agent/             # AI assistant
-│   ├── notifications/     # Notifications
-│   └── admin/             # Admin panel
-│
-├── integrations/          # External APIs
-│   ├── paystack.py
-│   ├── mnotify.py
-│   ├── openrouter.py
-│   └── weather.py
-│
-└── tests/                 # Test suite
+smartagro/
+├── backend/                # FastAPI application
+│   ├── main.py            # Entry point
+│   ├── modules/           # Feature modules (auth, products, etc.)
+│   └── ...
+├── frontend/               # React application
+│   ├── src/               # Source code
+│   ├── public/            # Static assets
+│   └── ...
+└── README.md              # Project documentation
 ```
 
 ## 🔑 Key Features
@@ -136,117 +120,13 @@ backend/
 - Platform analytics
 - Audit logs
 
-## 🔌 API Endpoints
-See [API endpoints](backend/API_ENDPOINTS.md) for detailed breakdown of all endpoints and full API docs at `/docs`
-
-## 🧪 Testing
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=modules --cov-report=html
-
-# Run specific test file
-pytest tests/test_auth.py
-```
-
-## 🗄️ Database Migrations
-```bash
-# Create migration
-alembic revision --autogenerate -m "Add new table"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
-
-# View history
-alembic history
-```
-
-## 🔐 Environment Variables
-
-See `.env.example` for all required variables.
-
-
-## 🚀 Deployment
-
-### DigitalOcean App Platform
-
-Deployment is automatic on push to `main` branch.
-
-**Build command:**
-```bash
-pip install -r requirements.txt && alembic upgrade head
-```
-
-**Run command:**
-```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
-```
-
-**Health check:** `/health`
-
-### Manual Deployment
-```bash
-# 1. Push to main
-git push origin main
-
-# 2. Verify deployment in DO dashboard
-# 3. Check logs for errors
-# 4. Test production endpoints
-```
-
-## 📊 Monitoring
-
-- **Health Check:** `GET /health`
-- **Metrics:** Available in DO dashboard
-- **Logs:** `tail -f app.log` or DO console
-
-## 🐛 Troubleshooting
-
-### Database Connection Error
-```bash
-# Check PostgreSQL is running
-pg_isready
-
-# Check connection string
-echo $DATABASE_URL
-```
-
-### Migration Errors
-```bash
-# Reset database (DEV ONLY)
-alembic downgrade base
-alembic upgrade head
-
-# Check migration history
-alembic history
-```
-
-### Import Errors
-```bash
-# Reinstall dependencies
-pip install -r requirements.txt --upgrade
-```
-
-## 📚 Documentation
-
-- [API Documentation](http://localhost:8000/docs) - Swagger UI
-- [Architecture Diagrams](./diagrams/) - PlantUML diagrams
-- [CLAUDE.md](./CLAUDE.md) - Detailed implementation guide
-- [Database Schema](./models.py) - SQLAlchemy models
-
 ## 🤝 Contributing
 
 1. Create feature branch: `git checkout -b feature/name`
 2. Implement feature with tests
-3. Run tests: `pytest`
-4. Commit: `git commit -m "Add feature"`
-5. Push: `git push origin feature/name`
-6. Create Pull Request
+3. Commit: `git commit -m "Add feature"`
+4. Push: `git push origin feature/name`
+5. Create Pull Request
 
 ## 📝 License
 
@@ -258,11 +138,3 @@ This project is part of an academic capstone and is not licensed for commercial 
 - **Nicole Nanka-Bruce** - Frontend
 - **Mohammed Jalloh** - Backend
 - **Michael Kwabena Sylvester** - Design
-
-## 📞 Support
-
-For questions or issues, create an issue in the repository.
-
----
-
-**Built with ❤️ for Ghanaian farmers**
