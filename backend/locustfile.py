@@ -3,7 +3,7 @@ Locust Load Testing for AgroConnect API
 ========================================
 
 Run with:
-    locust -f locustfile.py --host=https://your-deployed-app-url.com
+    locust -f locustfile.py --host=https://smartagro-backend-925054869230.us-central1.run.app
 
 Or with web UI disabled:
     locust -f locustfile.py --host=https://your-deployed-app-url.com --headless -u 100 -r 10 -t 5m

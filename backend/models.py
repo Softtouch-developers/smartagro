@@ -395,6 +395,55 @@ class Order(Base):
         Index('idx_order_status_created', 'status', 'created_at'),
     )
 
+    # Properties for Pydantic Schema Compatibility
+    @property
+    def quantity(self):
+        return self.quantity_ordered
+
+    @property
+    def delivery_gps_address(self):
+        return self.delivery_gps
+
+    @property
+    def estimated_delivery_date(self):
+        return self.expected_delivery_date
+
+    @property
+    def delivery_town_city(self):
+        return self.delivery_district  # Fallback since we don't have town_city on order
+
+    @property
+    def admin_notes(self):
+        return self.escrow.admin_notes if self.escrow else None
+
+    @property
+    def product_name(self):
+        if self.items:
+            return self.items[0].product_name_snapshot
+        return self.product.product_name if self.product else None
+
+    @property
+    def product_image(self):
+        if self.items and self.items[0].product:
+            return self.items[0].product.primary_image_url
+        return self.product.primary_image_url if self.product else None
+
+    @property
+    def seller_name(self):
+        return self.seller.full_name if self.seller else None
+
+    @property
+    def seller_phone(self):
+        return self.seller.phone_number if self.seller else None
+
+    @property
+    def buyer_name(self):
+        return self.buyer.full_name if self.buyer else None
+
+    @property
+    def buyer_phone(self):
+        return self.buyer.phone_number if self.buyer else None
+
 
 class EscrowTransaction(Base):
     __tablename__ = "escrow_transactions"
