@@ -28,10 +28,10 @@ PRODUCT_IMAGES = {
     "mango": "mango.jfif",
     "orange": "orange.jfif",
     "plantain": "plantain.jfif",
-    "maize": "white maize.jfif",
+    "maize": "white_maize.jfif",
     "yam": "yam.jfif",
     "cassava": "cassava.jfif",
-    "sweet_potato": "sweet potato.jfif",
+    "sweet_potato": "sweet_potato.jfif",
     "cashew": "cashew.jfif",
 }
 
@@ -269,14 +269,21 @@ def seed_products(db: Session, users: dict):
     farmer3 = users["farmer3"]
     farmer4 = users["farmer4"]
 
+    from config import settings
+
     def get_image_path(key):
         """Helper to get image path from PRODUCT_IMAGES"""
         filename = PRODUCT_IMAGES.get(key)
         if not filename:
             return None
-        # Assuming images are in uploads/products/ and keep original filenames
-        # If you manually renamed them to replace spaces with underscores, update this logic
-        return f"/uploads/products/{filename}"
+        
+        # Check storage type from settings
+        if settings.STORAGE_TYPE == "gcs":
+            # Return GCS Public URL
+            return f"https://storage.googleapis.com/{settings.GCS_BUCKET_NAME}/uploads/products/{filename}"
+        else:
+            # Return local path
+            return f"/uploads/products/{filename}"
 
     products_data = [
         # ========== FARMER 1 (Kwame) - Vegetables ==========
@@ -635,7 +642,12 @@ def seed_products(db: Session, users: dict):
             db.add(product)
             logger.info(f"  Created product: {data['product_name']}")
         else:
-            logger.info(f"  Product already exists: {data['product_name']}")
+            # Update image URL if it changed (e.g. switching to GCS)
+            if existing.primary_image_url != data["primary_image_url"]:
+                existing.primary_image_url = data["primary_image_url"]
+                logger.info(f"  Updated image for: {data['product_name']}")
+            else:
+                logger.info(f"  Product already exists: {data['product_name']}")
 
     db.commit()
     logger.info(f"✅ {len(products_data)} products seeded")
