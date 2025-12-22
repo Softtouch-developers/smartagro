@@ -5,13 +5,14 @@ export interface AgentMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-  attachments?: AgentAttachment[];
+  media_attachments?: AgentAttachment[];
 }
 
 export interface AgentAttachment {
   type: 'image' | 'audio' | 'video' | 'document';
   url: string;
   filename?: string;
+  mime_type?: string;
 }
 
 export interface AgentSession {
@@ -94,9 +95,19 @@ export const agentApi = {
   /**
    * Get all chat sessions for the current user
    */
+  /**
+   * Get all chat sessions for the current user
+   */
   getSessions: async (): Promise<AgentSession[]> => {
-    const response = await apiClient.get<AgentSession[]>('/api/v1/agent/sessions');
-    return response.data;
+    const response = await apiClient.get<any>('/api/v1/agent/sessions');
+    return response.data.sessions.map((s: any) => ({
+      session_id: s.session_id,
+      user_id: s.farmer_id,
+      title: s.current_topic || 'New Chat',
+      created_at: s.started_at,
+      updated_at: s.last_interaction_at,
+      message_count: s.total_messages
+    }));
   },
 
   /**
@@ -106,8 +117,22 @@ export const agentApi = {
     session: AgentSession;
     messages: AgentMessage[];
   }> => {
-    const response = await apiClient.get(`/api/v1/agent/sessions/${sessionId}`);
-    return response.data;
+    const response = await apiClient.get<any>(`/api/v1/agent/sessions/${sessionId}`);
+
+    // Construct a partial session object since backend only returns limited info in history endpoint
+    const session: AgentSession = {
+      session_id: response.data.session_id,
+      user_id: 0, // Not provided in history response
+      title: 'Chat', // Not provided in history response
+      created_at: new Date().toISOString(), // Not provided
+      updated_at: new Date().toISOString(), // Not provided
+      message_count: response.data.total_messages
+    };
+
+    return {
+      session,
+      messages: response.data.messages
+    };
   },
 
   /**

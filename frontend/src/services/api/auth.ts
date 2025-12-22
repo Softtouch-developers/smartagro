@@ -16,7 +16,7 @@ export const authApi = {
    * Login with email/phone and password
    */
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post<LoginResponse>('/auth/login', data);
+    const response = await apiClient.post<LoginResponse>('/api/v1/auth/login', data);
     return response.data;
   },
 
@@ -24,7 +24,7 @@ export const authApi = {
    * Register a new user
    */
   signup: async (data: SignupRequest): Promise<SignupResponse> => {
-    const response = await apiClient.post<SignupResponse>('/auth/signup', data);
+    const response = await apiClient.post<SignupResponse>('/api/v1/auth/signup', data);
     return response.data;
   },
 
@@ -32,7 +32,7 @@ export const authApi = {
    * Verify OTP code
    */
   verifyOTP: async (data: OTPVerifyRequest): Promise<MessageResponse> => {
-    const response = await apiClient.post<MessageResponse>('/auth/verify-otp', data);
+    const response = await apiClient.post<MessageResponse>('/api/v1/auth/verify-otp', data);
     return response.data;
   },
 
@@ -40,7 +40,7 @@ export const authApi = {
    * Resend OTP code
    */
   resendOTP: async (userId: number, otpType: string): Promise<MessageResponse> => {
-    const response = await apiClient.post<MessageResponse>('/auth/resend-otp', {
+    const response = await apiClient.post<MessageResponse>('/api/v1/auth/resend-otp', {
       user_id: userId,
       otp_type: otpType,
     });
@@ -51,7 +51,7 @@ export const authApi = {
    * Refresh access token
    */
   refreshToken: async (data: RefreshTokenRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post<LoginResponse>('/auth/refresh', data);
+    const response = await apiClient.post<LoginResponse>('/api/v1/auth/refresh', data);
     return response.data;
   },
 
@@ -95,7 +95,7 @@ export const authApi = {
    * Request password reset
    */
   requestPasswordReset: async (data: { email?: string; phone_number?: string }): Promise<MessageResponse> => {
-    const response = await apiClient.post<MessageResponse>('/auth/forgot-password', data);
+    const response = await apiClient.post<MessageResponse>('/api/v1/auth/forgot-password', data);
     return response.data;
   },
 
@@ -103,7 +103,7 @@ export const authApi = {
    * Verify reset OTP
    */
   verifyResetOtp: async (data: { email?: string; phone_number?: string; otp_code: string }): Promise<{ success: boolean; message: string; reset_token: string }> => {
-    const response = await apiClient.post<{ success: boolean; message: string; reset_token: string }>('/auth/verify-reset-otp', data);
+    const response = await apiClient.post<{ success: boolean; message: string; reset_token: string }>('/api/v1/auth/verify-reset-otp', data);
     return response.data;
   },
 
@@ -111,7 +111,7 @@ export const authApi = {
    * Reset password with token
    */
   resetPassword: async (token: string, newPassword: string): Promise<MessageResponse> => {
-    const response = await apiClient.post<MessageResponse>('/auth/reset-password', {
+    const response = await apiClient.post<MessageResponse>('/api/v1/auth/reset-password', {
       token,
       new_password: newPassword,
     });
@@ -129,6 +129,6 @@ export const authApi = {
    * Logout (invalidate token on server)
    */
   logout: async (): Promise<void> => {
-    await apiClient.post('/auth/logout');
+    await apiClient.post('/api/v1/auth/logout');
   },
 };

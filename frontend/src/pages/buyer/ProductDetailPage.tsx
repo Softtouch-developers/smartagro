@@ -99,8 +99,12 @@ const ProductDetailPage: React.FC = () => {
       });
       toast.success(`${product.product_name} added to cart`);
     } catch (error: any) {
+      console.log('AddToCart Error:', error);
+      console.log('Error Response:', error?.response);
+      console.log('Error Detail:', error?.response?.data?.detail);
+
       // Check for different farmer error
-      if (error?.response?.data?.detail?.code === 'CART_ERROR') {
+      if (error?.response?.data?.detail?.code === 'DIFFERENT_FARMER') {
         setShowClearCartDialog(true);
       } else {
         toast.error('Failed to add to cart');

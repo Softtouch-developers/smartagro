@@ -43,42 +43,20 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleSwitchMode = async () => {
-    if (!user?.can_buy && user?.current_mode === 'FARMER') {
-      toast.error('You need to complete buyer registration first');
-      return;
-    }
+    // Removed restriction: Farmers can switch to BUYER mode seamlessly
 
     const targetMode = user?.current_mode === 'FARMER' ? 'BUYER' : 'FARMER';
 
     try {
       await switchMode(targetMode);
-
-      // Manually ensure the updated user is saved to localStorage
-      // This prevents race conditions with Zustand persist
-      const currentState = useAuthStore.getState();
-      const persistedState = {
-        state: {
-          user: currentState.user,
-          isAuthenticated: currentState.isAuthenticated,
-        },
-        version: 0,
-      };
-      localStorage.setItem('smartagro-auth', JSON.stringify(persistedState));
-
-      // Set a flag to skip loadUser() on next mount
-      localStorage.setItem('mode-switch-pending', 'true');
-
       toast.success(`Switched to ${targetMode.toLowerCase()} mode`);
       setShowModeSwitch(false);
 
-      // Small delay to show toast, then reload
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Force full page reload to ensure store is properly updated
+      // Navigate to appropriate dashboard
       if (targetMode === 'FARMER') {
-        window.location.href = '/farmer';
+        navigate('/farmer');
       } else {
-        window.location.href = '/';
+        navigate('/');
       }
     } catch (error) {
       toast.error(getErrorMessage(error));

@@ -47,8 +47,10 @@ const CartPage: React.FC = () => {
   const handleQuantityChange = async (itemId: number, quantity: number) => {
     try {
       await updateItem(itemId, quantity);
-    } catch (error) {
-      toast.error('Failed to update quantity');
+    } catch (error: any) {
+      // Extract specific error message
+      const message = error?.response?.data?.detail?.message || error?.message || 'Failed to update quantity';
+      toast.error(message);
     }
   };
 
@@ -88,10 +90,27 @@ const CartPage: React.FC = () => {
     );
   }
 
+  // Construct image URL
+  const getImageUrl = (path: string | null | undefined) => {
+    if (!path) return '/placeholder-product.jpg';
+    if (path.startsWith('http')) return path;
+
+    // If path starts with uploads/, append to base URL (stripping /api/v1 if present)
+    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
+
+    // Ensure path starts with uploads/ if it's a local file
+    if (!cleanPath.startsWith('uploads/')) {
+      cleanPath = `uploads/${cleanPath}`;
+    }
+
+    return `${baseUrl}/${cleanPath}`;
+  };
+
   const isExpiringSoon = timeRemaining < 30 * 60; // Less than 30 minutes
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4 pb-48">
+    <div className="max-w-lg mx-auto px-4 py-4 pb-80">
       {/* Timer Warning */}
       <div
         className={`flex items-center gap-2 px-4 py-3 rounded-lg mb-4 ${isExpiringSoon ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-600'
@@ -129,11 +148,7 @@ const CartPage: React.FC = () => {
             className="flex gap-4 p-4 bg-white rounded-xl border border-gray-100"
           >
             <img
-              src={
-                item.product?.primary_image_url
-                  ? `${API_BASE_URL}${item.product.primary_image_url}`
-                  : '/placeholder-product.jpg'
-              }
+              src={getImageUrl(item.product?.primary_image_url)}
               alt={item.product?.product_name}
               className="w-20 h-20 rounded-lg object-cover bg-gray-100"
             />
@@ -152,7 +167,7 @@ const CartPage: React.FC = () => {
                     onClick={() =>
                       handleQuantityChange(item.id, item.quantity - 1)
                     }
-                    disabled={item.quantity <= 1}
+                    disabled={item.quantity <= (item.product?.minimum_order_quantity || 1)}
                     className="p-1.5 disabled:opacity-50"
                   >
                     <Minus className="w-4 h-4" />
@@ -200,7 +215,7 @@ const CartPage: React.FC = () => {
       </button>
 
       {/* Order Summary - Fixed at Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-20">
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-20">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-gray-600">

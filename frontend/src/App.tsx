@@ -130,15 +130,8 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   useEffect(() => {
-    // Check if we just switched modes - if so, skip loadUser to prevent overwriting
-    const modeSwitchPending = localStorage.getItem('mode-switch-pending');
-    if (modeSwitchPending) {
-      localStorage.removeItem('mode-switch-pending');
-      console.log('Skipping loadUser() after mode switch');
-    } else {
-      // Load user on app start
-      loadUser();
-    }
+    // Load user on app start
+    loadUser();
 
     // Initialize sync service
     const cleanupSync = initSync();
