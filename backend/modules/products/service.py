@@ -3,7 +3,7 @@ Product Management Service
 Business logic for product operations
 """
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, desc, asc, func
+from sqlalchemy import or_, and_, desc, asc, func, cast, String
 from fastapi import HTTPException, status
 from typing import Optional, Dict, Any, List, Tuple
 import logging
@@ -286,7 +286,7 @@ class ProductService:
                     Product.product_name.ilike(search_pattern),
                     Product.description.ilike(search_pattern),
                     Product.variety.ilike(search_pattern),
-                    Product.category.cast(db.String).ilike(search_pattern)
+                    cast(Product.category, String).ilike(search_pattern)
                 )
             )
         ).order_by(desc(Product.created_at)).limit(limit).all()

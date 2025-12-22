@@ -109,7 +109,7 @@ async def list_products(
     try:
         # Build filter request
         filters = ProductFilterRequest(
-            category=category,
+            category=category.upper() if category else None,
             region=region,
             district=district,
             is_organic=is_organic,

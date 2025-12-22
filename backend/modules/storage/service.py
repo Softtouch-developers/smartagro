@@ -168,7 +168,7 @@ class StorageService:
             )
             
             # Make public if needed, or rely on bucket policy
-            # blob.make_public()
+            blob.make_public()
             
             # Return public URL
             return blob.public_url

@@ -17,12 +17,12 @@ class CreateOrderRequest(BaseModel):
     delivery_method: DeliveryMethod
 
     # Delivery information
-    delivery_address: str = Field(..., min_length=10, max_length=500)
-    delivery_region: str = Field(..., max_length=50)
-    delivery_district: str = Field(..., max_length=100)
+    delivery_address: Optional[str] = Field(None, min_length=10, max_length=500)
+    delivery_region: Optional[str] = Field(None, max_length=50)
+    delivery_district: Optional[str] = Field(None, max_length=100)
     delivery_town_city: Optional[str] = Field(None, max_length=100)
     delivery_gps_address: Optional[str] = Field(None, max_length=50)
-    delivery_phone: str = Field(..., min_length=10, max_length=20)
+    delivery_phone: Optional[str] = Field(None, min_length=10, max_length=20)
 
     # Optional notes
     buyer_notes: Optional[str] = Field(None, max_length=1000)
@@ -125,7 +125,7 @@ class OrderResponse(BaseModel):
     # Parties
     buyer_id: int
     seller_id: int
-    product_id: int
+    product_id: Optional[int]
 
     # Order details
     quantity: float
@@ -141,12 +141,12 @@ class OrderResponse(BaseModel):
 
     # Delivery
     delivery_method: str
-    delivery_address: str
-    delivery_region: str
-    delivery_district: str
+    delivery_address: Optional[str]
+    delivery_region: Optional[str]
+    delivery_district: Optional[str]
     delivery_town_city: Optional[str]
     delivery_gps_address: Optional[str]
-    delivery_phone: str
+    delivery_phone: Optional[str]
 
     # Tracking
     tracking_number: Optional[str]

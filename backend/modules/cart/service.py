@@ -389,7 +389,7 @@ class CartService:
             delivery_fee=totals["delivery_fee"],
             total_amount=totals["total"],
             delivery_method=delivery_method,
-            delivery_address=checkout_data.get("delivery_address", ""),
+            delivery_address=checkout_data.get("delivery_address") or ("PICKUP" if delivery_method == DeliveryMethod.PICKUP else ""),
             delivery_region=checkout_data.get("delivery_region"),
             delivery_district=checkout_data.get("delivery_district"),
             delivery_phone=checkout_data.get("delivery_phone"),
