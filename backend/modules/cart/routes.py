@@ -10,7 +10,7 @@ import logging
 from database import get_db
 from models import User
 from modules.auth.dependencies import get_current_user, get_current_buyer
-from modules.cart.service import CartService
+from modules.cart.service import CartService, DifferentFarmerError
 from modules.cart.schemas import (
     AddToCartRequest,
     UpdateCartItemRequest,
@@ -26,27 +26,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("", response_model=CartResponse)
-async def get_cart(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get current user's active cart
-
-    Returns cart with all items, totals, and expiry time
-    """
-    cart = CartService.get_active_cart(current_user.id, db)
-
-    if not cart:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": "NO_CART",
-                "message": "No active cart found"
-            }
-        )
-
+def _build_cart_response(cart):
+    """Helper to build CartResponse from Cart model"""
     totals = CartService.calculate_totals(cart)
     # Calculate time remaining in seconds
     time_remaining = (cart.expires_at - datetime.utcnow()).total_seconds()
@@ -95,7 +76,31 @@ async def get_cart(
     )
 
 
-@router.post("/items", response_model=MessageResponse)
+@router.get("", response_model=CartResponse)
+async def get_cart(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user's active cart
+
+    Returns cart with all items, totals, and expiry time
+    """
+    cart = CartService.get_active_cart(current_user.id, db)
+
+    if not cart:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "NO_CART",
+                "message": "No active cart found"
+            }
+        )
+
+    return _build_cart_response(cart)
+
+
+@router.post("/items", response_model=CartResponse)
 async def add_to_cart(
     request: AddToCartRequest,
     current_user: User = Depends(get_current_buyer),
@@ -117,12 +122,16 @@ async def add_to_cart(
             db=db
         )
 
-        return MessageResponse(
-            success=True,
-            message="Added to cart",
-            cart_id=cart.id
-        )
+        return _build_cart_response(cart)
 
+    except DifferentFarmerError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "DIFFERENT_FARMER",
+                "message": str(e)
+            }
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -142,7 +151,7 @@ async def add_to_cart(
         )
 
 
-@router.put("/items/{item_id}", response_model=MessageResponse)
+@router.put("/items/{item_id}", response_model=CartResponse)
 async def update_cart_item(
     item_id: int,
     request: UpdateCartItemRequest,
@@ -156,17 +165,14 @@ async def update_cart_item(
     - Refreshes cart expiry time
     """
     try:
-        CartService.update_cart_item(
+        cart = CartService.update_cart_item(
             buyer_id=current_user.id,
             item_id=item_id,
             quantity=request.quantity,
             db=db
         )
 
-        return MessageResponse(
-            success=True,
-            message="Cart updated"
-        )
+        return _build_cart_response(cart)
 
     except ValueError as e:
         raise HTTPException(

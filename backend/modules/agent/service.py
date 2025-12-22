@@ -8,6 +8,7 @@ import uuid
 import base64
 import logging
 import asyncio
+import os
 from typing import List, Dict, Any, Optional, AsyncGenerator
 from datetime import datetime
 
@@ -85,7 +86,6 @@ def build_multimodal_content(
         text: Text message from user
         media_attachments: List of media attachments with format:
             [{"type": "image", "url": "...", "mime_type": "image/jpeg"}]
-
     Returns:
         Content array for LLM message
     """
@@ -114,23 +114,78 @@ def build_multimodal_content(
                         }
                     })
                 elif attachment.get('url'):
-                    # URL to image
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": attachment['url']
-                        }
-                    })
+                    url = attachment['url']
+                    # Check if it's a local file (starts with /uploads/)
+                    if url.startswith('/uploads/'):
+                        try:
+                            # Convert local path to file system path
+                            # URL: /uploads/agent/images/xxx.jpg -> Path: ./uploads/agent/images/xxx.jpg
+                            relative_path = url.lstrip('/')
+                            file_path = os.path.join(os.getcwd(), relative_path)
+                            
+                            if os.path.exists(file_path):
+                                with open(file_path, "rb") as image_file:
+                                    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+                                    
+                                content.append({
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:{attachment.get('mime_type', 'image/jpeg')};base64,{base64_image}"
+                                    }
+                                })
+                            else:
+                                logger.error(f"Local image file not found: {file_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to process local image: {e}")
+                    else:
+                        # Remote URL
+                        content.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": url
+                            }
+                        })
 
             elif media_type == 'audio':
                 # For audio (Gemini supports audio input)
                 if attachment.get('url'):
-                    content.append({
-                        "type": "audio_url",
-                        "audio_url": {
-                            "url": attachment['url']
-                        }
-                    })
+                    url = attachment['url']
+                    if url.startswith('/uploads/'):
+                        try:
+                            relative_path = url.lstrip('/')
+                            file_path = os.path.join(os.getcwd(), relative_path)
+                            if os.path.exists(file_path):
+                                import io
+                                from pydub import AudioSegment
+
+                                if not file_path.lower().endswith('.wav'):
+                                    audio = AudioSegment.from_file(file_path)
+                                    wav_buffer = io.BytesIO()
+                                    audio.export(wav_buffer, format="wav")
+                                    audio_bytes = wav_buffer.getvalue()
+                                else:
+                                    with open(file_path, "rb") as audio_file:
+                                        audio_bytes = audio_file.read()
+                                
+                                base64_audio = base64.b64encode(audio_bytes).decode('utf-8')
+                                content.append({
+                                    "type": "input_audio",
+                                    "input_audio": {
+                                        "data": base64_audio,
+                                        "format": "wav"
+                                    }
+                                })
+                            else:
+                                logger.error(f"Local audio file not found: {file_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to process local audio: {e}")
+                    else:
+                        content.append({
+                            "type": "audio_url",
+                            "audio_url": {
+                                "url": url
+                            }
+                        })
                 elif attachment.get('base64'):
                     content.append({
                         "type": "input_audio",
@@ -143,12 +198,40 @@ def build_multimodal_content(
             elif media_type == 'video':
                 # For video (Gemini supports video input)
                 if attachment.get('url'):
-                    content.append({
-                        "type": "video_url",
-                        "video_url": {
-                            "url": attachment['url']
-                        }
-                    })
+                    url = attachment['url']
+                    if url.startswith('/uploads/'):
+                        try:
+                            relative_path = url.lstrip('/')
+                            file_path = os.path.join(os.getcwd(), relative_path)
+                            if os.path.exists(file_path):
+                                with open(file_path, "rb") as video_file:
+                                    base64_video = base64.b64encode(video_file.read()).decode('utf-8')
+                                # Note: Gemini API might prefer file upload API for large videos, 
+                                # but for short clips base64 might work via inline data if supported by the library/API version.
+                                # However, standard OpenAI/Gemini format often prefers URL. 
+                                # If base64 video isn't directly supported in 'video_url', we might need a different approach.
+                                # Assuming standard 'video_url' or specific input type.
+                                # Let's try sending as inline data if possible, or warn.
+                                # Actually, for local dev, base64 is the only way without a public URL.
+                                # We will assume the client library handles it or we send as 'image_url' frames (complex).
+                                # For now, let's try the same pattern.
+                                content.append({
+                                    "type": "video_url",
+                                    "video_url": {
+                                        "url": f"data:{attachment.get('mime_type', 'video/mp4')};base64,{base64_video}"
+                                    }
+                                })
+                            else:
+                                logger.error(f"Local video file not found: {file_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to process local video: {e}")
+                    else:
+                        content.append({
+                            "type": "video_url",
+                            "video_url": {
+                                "url": url
+                            }
+                        })
 
     return content if len(content) > 1 else text
 

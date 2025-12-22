@@ -24,6 +24,11 @@ PLATFORM_FEE_PERCENTAGE = Decimal('0.05')  # 5%
 BASE_DELIVERY_FEE = Decimal('20.00')
 
 
+class DifferentFarmerError(ValueError):
+    """Raised when adding item from different farmer than currently in cart"""
+    pass
+
+
 class CartService:
     """Shopping cart service"""
 
@@ -80,6 +85,7 @@ class CartService:
 
         Raises:
             ValueError: If validation fails
+            DifferentFarmerError: If cart has items from different farmer
         """
         # Get and validate product
         product = db.query(Product).filter(Product.id == product_id).first()
@@ -109,7 +115,7 @@ class CartService:
         if cart:
             # Check if same farmer
             if cart.farmer_id != product.seller_id:
-                raise ValueError(
+                raise DifferentFarmerError(
                     "Your cart contains items from a different farmer. "
                     "Please checkout or clear your cart first to buy from another farmer."
                 )
@@ -282,12 +288,13 @@ class CartService:
             logger.info(f"Cart {cart.id} cleared by user {buyer_id}")
 
     @staticmethod
-    def calculate_totals(cart: Cart) -> Dict[str, Decimal]:
+    def calculate_totals(cart: Cart, delivery_method: str = "DELIVERY") -> Dict[str, Decimal]:
         """
         Calculate cart totals
 
         Args:
             cart: Cart object with items loaded
+            delivery_method: "DELIVERY" or "PICKUP"
 
         Returns:
             Dict with subtotal, platform_fee, delivery_fee, total
@@ -300,9 +307,12 @@ class CartService:
         platform_fee = subtotal * PLATFORM_FEE_PERCENTAGE
 
         # Delivery fee: base + 2% for orders > 500
-        delivery_fee = BASE_DELIVERY_FEE
-        if subtotal > 500:
-            delivery_fee += subtotal * Decimal('0.02')
+        # Only charge if delivery method is DELIVERY
+        delivery_fee = Decimal('0.00')
+        if delivery_method == "DELIVERY":
+            delivery_fee = BASE_DELIVERY_FEE
+            if subtotal > 500:
+                delivery_fee += subtotal * Decimal('0.02')
 
         total = subtotal + platform_fee + delivery_fee
 
@@ -351,16 +361,20 @@ class CartService:
             if product.status != ProductStatus.AVAILABLE:
                 raise ValueError(f"Product '{product.product_name}' is no longer available")
 
+        # Determine delivery method
+        delivery_method_str = checkout_data.get("delivery_method", "DELIVERY")
+        try:
+            delivery_method = DeliveryMethod[delivery_method_str]
+        except KeyError:
+            raise ValueError(f"Invalid delivery method: {delivery_method_str}")
+
         # Calculate totals
-        totals = CartService.calculate_totals(cart)
+        totals = CartService.calculate_totals(cart, delivery_method=delivery_method_str)
 
         # Generate order number
         timestamp = int(datetime.utcnow().timestamp())
         random_suffix = uuid.uuid4().hex[:6].upper()
         order_number = f"ORD-{timestamp}-{random_suffix}"
-
-        # Determine delivery method
-        delivery_method = DeliveryMethod[checkout_data.get("delivery_method", "DELIVERY")]
 
         # Create order
         order = Order(

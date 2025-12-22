@@ -89,6 +89,7 @@ class UserProfileResponse(BaseModel):
     account_status: str
     created_at: Optional[str] = None
     last_login: Optional[str] = None
+    current_mode: Optional[str] = None
 
     # Optional farmer fields
     farm_name: Optional[str] = None

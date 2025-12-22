@@ -7,6 +7,7 @@ from io import BytesIO
 import os
 import uuid
 import boto3
+from google.cloud import storage
 from config import settings
 import logging
 
@@ -42,6 +43,15 @@ class StorageService:
             )
             self.bucket = settings.SPACES_BUCKET
             logger.info(f"✅ Using DO Spaces: {self.bucket}")
+
+        elif self.storage_type == "gcs":
+            # Initialize Google Cloud Storage client
+            # Credentials are automatically picked up from environment (GOOGLE_APPLICATION_CREDENTIALS)
+            # or metadata server if running on Cloud Run
+            self.gcs_client = storage.Client()
+            self.bucket_name = settings.GCS_BUCKET_NAME
+            self.bucket = self.gcs_client.bucket(self.bucket_name)
+            logger.info(f"✅ Using Google Cloud Storage: {self.bucket_name}")
         
         else:
             raise ValueError(f"Invalid STORAGE_TYPE: {self.storage_type}")
@@ -81,8 +91,10 @@ class StorageService:
         # Upload based on storage type
         if self.storage_type == "local":
             return self._save_local(contents, file_path)
-        else:
+        elif self.storage_type == "spaces":
             return self._save_spaces(contents, file_path)
+        else:
+            return self._save_gcs(contents, file_path, "image/jpeg")
     
     
     def _optimize_image(self, image_bytes: bytes) -> bytes:
@@ -144,6 +156,26 @@ class StorageService:
         except Exception as e:
             logger.error(f"DO Spaces upload failed: {e}")
             raise HTTPException(500, "File upload failed")
+
+
+    def _save_gcs(self, contents: bytes, file_path: str, content_type: str) -> str:
+        """Save file to Google Cloud Storage"""
+        try:
+            blob = self.bucket.blob(file_path)
+            blob.upload_from_string(
+                contents,
+                content_type=content_type
+            )
+            
+            # Make public if needed, or rely on bucket policy
+            # blob.make_public()
+            
+            # Return public URL
+            return blob.public_url
+            
+        except Exception as e:
+            logger.error(f"GCS upload failed: {e}")
+            raise HTTPException(500, "File upload failed")
     
     
     async def upload_voice_note(self, file: UploadFile) -> str:
@@ -157,8 +189,10 @@ class StorageService:
 
         if self.storage_type == "local":
             return self._save_local(contents, file_path)
-        else:
+        elif self.storage_type == "spaces":
             return self._save_spaces(contents, file_path)
+        else:
+            return self._save_gcs(contents, file_path, "audio/mpeg")
 
 
     async def upload_file(
@@ -190,8 +224,10 @@ class StorageService:
             folder_path = os.path.join(self.base_path, folder)
             os.makedirs(folder_path, exist_ok=True)
             url = self._save_local(file_bytes, file_path)
-        else:
+        elif self.storage_type == "spaces":
             url = self._save_spaces_generic(file_bytes, file_path, content_type)
+        else:
+            url = self._save_gcs(file_bytes, file_path, content_type)
 
         return {
             "url": url,
@@ -254,7 +290,7 @@ class StorageService:
             if os.path.exists(full_path):
                 os.remove(full_path)
         
-        else:
+        elif self.storage_type == "spaces":
             # Extract key from URL
             key = file_url.split('/')[-2:]  # Get last 2 parts (folder/filename)
             key = '/'.join(key)
@@ -263,6 +299,22 @@ class StorageService:
                 Bucket=self.bucket,
                 Key=key
             )
+            
+        elif self.storage_type == "gcs":
+            # Extract key from URL
+            # URL format: https://storage.googleapis.com/bucket-name/folder/filename
+            try:
+                # Simple extraction assuming standard GCS URL structure
+                parts = file_url.split('/')
+                # Find where the bucket name is, the rest is the blob name
+                # This is a bit brittle, better to store the path or use a robust parser
+                # Assuming folder/filename is at the end
+                blob_name = '/'.join(parts[-2:])
+                
+                blob = self.bucket.blob(blob_name)
+                blob.delete()
+            except Exception as e:
+                logger.warning(f"Failed to delete GCS file {file_url}: {e}")
 
 
 # Singleton instance

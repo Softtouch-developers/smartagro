@@ -232,7 +232,7 @@ async def send_message_with_upload(
         # Validate file type
         allowed_types = [
             "image/jpeg", "image/png", "image/webp", "image/gif",
-            "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm",
+            "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/flac",
             "video/mp4", "video/webm", "video/quicktime"
         ]
 

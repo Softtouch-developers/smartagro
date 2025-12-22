@@ -119,7 +119,7 @@ if settings.STORAGE_TYPE == "local":
 if is_production():
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["smartagro-backend.ondigitalocean.app", "*.ondigitalocean.app"]
+        allowed_hosts=["smartagro-backend.ondigitalocean.app", "*.ondigitalocean.app", "*.run.app"]
     )
 
 # Error handling middleware
@@ -139,8 +139,9 @@ async def health_check():
     """
     try:
         # Check PostgreSQL
+        from sqlalchemy import text
         db = next(get_db())
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         postgres_healthy = True
     except Exception as e:
         logger.error(f"PostgreSQL health check failed: {e}")
@@ -215,12 +216,12 @@ from integrations.paystack import router as paystack_webhook_router
 
 # ==================== REGISTER ROUTERS ====================
 
-# Public routes (prefixed with /api to avoid frontend conflict)
-app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(paystack_webhook_router, prefix="/api/webhooks", tags=["Webhooks"])
-
 # API routes (versioned)
 api_prefix = "/api/v1"
+
+# Public routes (prefixed with /api to avoid frontend conflict)
+app.include_router(auth_router, prefix=f"{api_prefix}/auth", tags=["Authentication"])
+app.include_router(paystack_webhook_router, prefix="/api/webhooks", tags=["Webhooks"])
 
 app.include_router(users_router, prefix=f"{api_prefix}/users", tags=["Users"])
 app.include_router(products_router, prefix=f"{api_prefix}/products", tags=["Products"])

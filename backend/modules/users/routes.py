@@ -201,15 +201,8 @@ async def switch_mode(
                 }
             )
 
-    if target_mode == "BUYER":
-        if not current_user.can_buy:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "BUYING_DISABLED",
-                    "message": "Buying is disabled for your account"
-                }
-            )
+    # Removed restriction: Farmers can switch to BUYER mode even if can_buy is False
+    # Missing info will be collected at checkout
 
     current_user.current_mode = target_mode
     db.commit()
