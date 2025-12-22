@@ -13,7 +13,7 @@ GCS_BUCKET_NAME="smartagro-481707_cloudbuild"
 echo "🚀 Starting deployment for project: $PROJECT_ID"
 
 # 1. Build and Push Docker Image
-# echo "📦 Building and pushing Docker image..."
+echo "📦 Building and pushing Docker image..."
 gcloud builds submit --tag $IMAGE_TAG .
 
 # 2. Deploy to Cloud Run
@@ -28,7 +28,11 @@ gcloud run deploy $SERVICE_NAME \
     --platform managed \
     --region $REGION \
     --allow-unauthenticated \
-    --set-env-vars "STORAGE_TYPE=gcs,GCS_BUCKET_NAME=$GCS_BUCKET_NAME,$ENV_VARS"
+    --set-env-vars "STORAGE_TYPE=gcs,GCS_BUCKET_NAME=$GCS_BUCKET_NAME,$ENV_VARS" \
+    --command "" \
+    --args "" 
+    # --command "alembic" \
+    # --args "upgrade,head"
 
 echo "✅ Deployment complete!"
 # https://smartagro-backend-925054869230.us-central1.run.app
