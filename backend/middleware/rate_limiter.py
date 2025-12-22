@@ -35,6 +35,8 @@ def setup_rate_limiter(app):
         
         # Check rate limit
         redis = get_redis()
+        if not redis:
+            return await call_next(request)
         
         try:
             current = redis.get(key)
