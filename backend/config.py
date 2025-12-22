@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     SPACES_REGION: str = "sgp1"
     SPACES_ENDPOINT: Optional[str] = None
     SPACES_CDN_URL: Optional[str] = None
+
+    # Google Cloud Storage
+    GCS_BUCKET_NAME: Optional[str] = None
     
     # JWT
     JWT_SECRET_KEY: Optional[str] = None
@@ -124,8 +127,8 @@ def get_database_url() -> str:
     # Fix for SQLAlchemy 2.0 compatibility
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    # Add sslmode for DO managed databases if not already present
-    if "sslmode" not in url:
+    # Add sslmode for DO managed databases if not already present AND in production
+    if settings.ENVIRONMENT == "production" and "sslmode" not in url:
         separator = "&" if "?" in url else "?"
         url = f"{url}{separator}sslmode=require"
     return url

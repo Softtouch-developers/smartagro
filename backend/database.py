@@ -80,13 +80,18 @@ redis_client = None
 if settings.REDIS_URL:
     try:
         # For DO managed Redis with rediss:// (SSL), skip cert verification
-        ssl_cert_reqs = None if settings.REDIS_URL.startswith("rediss://") else None
+        redis_kwargs = {
+            "decode_responses": True,
+            "socket_connect_timeout": 5,
+            "socket_timeout": 5
+        }
+        
+        if settings.REDIS_URL.startswith("rediss://"):
+            redis_kwargs["ssl_cert_reqs"] = None
+            
         redis_client = redis.from_url(
             settings.REDIS_URL,
-            decode_responses=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
-            ssl_cert_reqs=ssl_cert_reqs
+            **redis_kwargs
         )
         
         # Test connection
