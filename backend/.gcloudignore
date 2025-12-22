@@ -1,0 +1,10 @@
+__pycache__
+.venv
+.env
+.env.*
+.git
+.gitignore
+uploads/
+cloud-sql-proxy
+*.log
+try.ipynb
