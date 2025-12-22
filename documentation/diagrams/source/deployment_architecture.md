@@ -1,14 +1,14 @@
 @startuml SmartAgro_Deployment_Diagram
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
 
-title Deployment Diagram - SmartAgro on DigitalOcean
+title Deployment Diagram - SmartAgro on Google Cloud Platform
 
 Deployment_Node(client, "User Device", "Mobile/Desktop Browser") {
     Container(browser, "Web Browser", "Chrome, Safari, Firefox", "Runs React PWA with service workers")
     ContainerDb(indexeddb, "IndexedDB", "Browser Storage", "Offline data cache")
 }
 
-Deployment_Node(do_platform, "DigitalOcean App Platform", "Singapore Region") {
+Deployment_Node(do_platform, "Google Cloud Platform App Platform", "Iowa Region") {
     Deployment_Node(frontend_service, "Static Site Service") {
         Container(react_app, "React PWA", "Static Assets", "Built React application")
     }
@@ -19,7 +19,7 @@ Deployment_Node(do_platform, "DigitalOcean App Platform", "Singapore Region") {
     }
 }
 
-Deployment_Node(do_databases, "DigitalOcean Managed Databases", "Singapore Region") {
+Deployment_Node(do_databases, "Google Cloud Platform Managed Databases", "Iowa Region") {
     Deployment_Node(postgres_node, "PostgreSQL Cluster", "1 GB RAM, 10 GB Storage") {
         ContainerDb(postgres, "PostgreSQL 15", "with pgvector", "Relational data + embeddings")
     }
@@ -29,7 +29,7 @@ Deployment_Node(do_databases, "DigitalOcean Managed Databases", "Singapore Regio
     }
 }
 
-Deployment_Node(do_spaces_node, "DigitalOcean Spaces", "Singapore Region") {
+Deployment_Node(do_spaces_node, "Google Cloud Platform Spaces", "Iowa Region") {
     ContainerDb(spaces, "Object Storage + CDN", "250 GB Storage", "Media files")
 }
 
