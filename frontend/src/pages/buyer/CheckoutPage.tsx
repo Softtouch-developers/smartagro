@@ -75,6 +75,9 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
+  const deliveryFee = deliveryMethod === 'PICKUP' ? 0 : cart.delivery_fee;
+  const finalTotal = cart.subtotal + cart.platform_fee + deliveryFee;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
       {/* Header */}
@@ -98,21 +101,18 @@ const CheckoutPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setDeliveryMethod('DELIVERY')}
-              className={`p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${
-                deliveryMethod === 'DELIVERY'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-gray-200'
-              }`}
+              className={`p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${deliveryMethod === 'DELIVERY'
+                ? 'border-primary bg-primary/5'
+                : 'border-gray-200'
+                }`}
             >
               <Truck
-                className={`w-6 h-6 ${
-                  deliveryMethod === 'DELIVERY' ? 'text-primary' : 'text-gray-400'
-                }`}
+                className={`w-6 h-6 ${deliveryMethod === 'DELIVERY' ? 'text-primary' : 'text-gray-400'
+                  }`}
               />
               <span
-                className={`font-medium ${
-                  deliveryMethod === 'DELIVERY' ? 'text-primary' : 'text-gray-700'
-                }`}
+                className={`font-medium ${deliveryMethod === 'DELIVERY' ? 'text-primary' : 'text-gray-700'
+                  }`}
               >
                 Delivery
               </span>
@@ -120,21 +120,18 @@ const CheckoutPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setDeliveryMethod('PICKUP')}
-              className={`p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${
-                deliveryMethod === 'PICKUP'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-gray-200'
-              }`}
+              className={`p-4 border-2 rounded-xl flex flex-col items-center gap-2 transition-colors ${deliveryMethod === 'PICKUP'
+                ? 'border-primary bg-primary/5'
+                : 'border-gray-200'
+                }`}
             >
               <Store
-                className={`w-6 h-6 ${
-                  deliveryMethod === 'PICKUP' ? 'text-primary' : 'text-gray-400'
-                }`}
+                className={`w-6 h-6 ${deliveryMethod === 'PICKUP' ? 'text-primary' : 'text-gray-400'
+                  }`}
               />
               <span
-                className={`font-medium ${
-                  deliveryMethod === 'PICKUP' ? 'text-primary' : 'text-gray-700'
-                }`}
+                className={`font-medium ${deliveryMethod === 'PICKUP' ? 'text-primary' : 'text-gray-700'
+                  }`}
               >
                 Pickup
               </span>
@@ -225,11 +222,11 @@ const CheckoutPage: React.FC = () => {
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Delivery Fee</span>
-              <span>{formatCurrency(cart.delivery_fee)}</span>
+              <span>{deliveryFee === 0 ? 'Free' : formatCurrency(deliveryFee)}</span>
             </div>
             <div className="flex justify-between font-semibold text-gray-900 text-base pt-3 border-t">
               <span>Total</span>
-              <span>{formatCurrency(cart.total)}</span>
+              <span>{formatCurrency(finalTotal)}</span>
             </div>
           </div>
         </section>
@@ -245,7 +242,7 @@ const CheckoutPage: React.FC = () => {
             isLoading={isLoading}
             onClick={handleSubmit}
           >
-            Place Order · {formatCurrency(cart.total)}
+            Place Order · {formatCurrency(finalTotal)}
           </Button>
         </div>
       </div>

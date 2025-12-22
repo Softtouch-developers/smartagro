@@ -72,8 +72,8 @@ const AddProductPage: React.FC = () => {
     e.preventDefault();
 
     if (!formData.product_name || !formData.category || !formData.quantity_available ||
-        !formData.unit_of_measure || !formData.price_per_unit) {
-      toast.error('Please fill in all required fields');
+      !formData.unit_of_measure || !formData.price_per_unit || !formData.description) {
+      toast.error('Please fill in all required fields, including description');
       return;
     }
 

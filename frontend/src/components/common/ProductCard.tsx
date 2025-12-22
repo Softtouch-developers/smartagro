@@ -5,6 +5,7 @@ import type { Product } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 
 interface ProductCardProps {
   product: Product;
@@ -30,22 +31,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
     onAddToCart?.(product);
   };
 
-  // Construct image URL
-  const getImageUrl = (path: string | null | undefined) => {
-    if (!path) return '/placeholder-product.jpg';
-    if (path.startsWith('http')) return path;
 
-    // If path starts with uploads/, append to base URL (stripping /api/v1 if present)
-    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
-    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
-    
-    // Ensure path starts with uploads/ if it's a local file
-    if (!cleanPath.startsWith('uploads/')) {
-      cleanPath = `uploads/${cleanPath}`;
-    }
-    
-    return `${baseUrl}/${cleanPath}`;
-  };
+
+  // ...
 
   const imageUrl = getImageUrl(product.primary_image_url);
 

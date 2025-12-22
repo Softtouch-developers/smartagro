@@ -2,7 +2,7 @@ import React from 'react';
 import { User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInitials } from '@/utils/formatters';
-import { API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 
 interface AvatarProps {
   src?: string | null;
@@ -19,7 +19,7 @@ const sizeClasses = {
 };
 
 const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', className }) => {
-  const imageUrl = src ? (src.startsWith('http') ? src : `${API_BASE_URL}${src}`) : null;
+  const imageUrl = src ? getImageUrl(src) : null;
 
   if (imageUrl) {
     return (

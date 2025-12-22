@@ -11,7 +11,8 @@ import {
 import { productsApi } from '@/services/api';
 import { useToast } from '@/stores/uiStore';
 import { getErrorMessage } from '@/services/api/client';
-import { PRODUCT_CATEGORIES, UNITS_OF_MEASURE, API_BASE_URL } from '@/utils/constants';
+import { PRODUCT_CATEGORIES, UNITS_OF_MEASURE } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 
 interface ImagePreview {
   file?: File;
@@ -70,9 +71,7 @@ const EditProductPage: React.FC = () => {
       const existingImages: ImagePreview[] = [];
       if (product.primary_image_url) {
         existingImages.push({
-          url: product.primary_image_url.startsWith('http')
-            ? product.primary_image_url
-            : `${API_BASE_URL}${product.primary_image_url}`,
+          url: getImageUrl(product.primary_image_url),
           isExisting: true,
         });
       }
@@ -80,7 +79,7 @@ const EditProductPage: React.FC = () => {
         product.images.forEach((img: string) => {
           if (img !== product.primary_image_url) {
             existingImages.push({
-              url: img.startsWith('http') ? img : `${API_BASE_URL}${img}`,
+              url: getImageUrl(img),
               isExisting: true,
             });
           }
@@ -123,8 +122,8 @@ const EditProductPage: React.FC = () => {
     e.preventDefault();
 
     if (!formData.product_name || !formData.category || !formData.quantity_available ||
-        !formData.unit_of_measure || !formData.price_per_unit) {
-      toast.error('Please fill in all required fields');
+      !formData.unit_of_measure || !formData.price_per_unit || !formData.description) {
+      toast.error('Please fill in all required fields, including description');
       return;
     }
 

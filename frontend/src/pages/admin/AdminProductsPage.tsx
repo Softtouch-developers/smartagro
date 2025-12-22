@@ -26,7 +26,8 @@ import { productsApi, adminApi } from '@/services/api';
 import { useToast } from '@/stores/uiStore';
 import { getErrorMessage } from '@/services/api/client';
 import { formatCurrency, formatRelativeTime } from '@/utils/formatters';
-import { API_BASE_URL, PRODUCT_CATEGORIES } from '@/utils/constants';
+import { PRODUCT_CATEGORIES } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 import type { Product } from '@/types';
 
 const AdminProductsPage: React.FC = () => {
@@ -84,11 +85,7 @@ const AdminProductsPage: React.FC = () => {
     },
   });
 
-  const getImageUrl = (url: string) => {
-    if (!url) return '/placeholder-product.jpg';
-    if (url.startsWith('http')) return url;
-    return `${API_BASE_URL}${url}`;
-  };
+
 
   const openActions = (product: Product) => {
     setActiveProduct(product);
@@ -215,8 +212,8 @@ const AdminProductsPage: React.FC = () => {
                             product.status === 'AVAILABLE'
                               ? 'success'
                               : product.status === 'OUT_OF_STOCK'
-                              ? 'warning'
-                              : 'default'
+                                ? 'warning'
+                                : 'default'
                           }
                           size="sm"
                         >

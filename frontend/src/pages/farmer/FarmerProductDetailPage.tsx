@@ -26,7 +26,7 @@ import { productsApi } from '@/services/api';
 import { useToast } from '@/stores/uiStore';
 import { getErrorMessage } from '@/services/api/client';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/utils/formatters';
-import { API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 
 const FarmerProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -72,11 +72,7 @@ const FarmerProductDetailPage: React.FC = () => {
     },
   });
 
-  const getImageUrl = (url: string) => {
-    if (!url) return '/placeholder-product.jpg';
-    if (url.startsWith('http')) return url;
-    return `${API_BASE_URL}${url}`;
-  };
+
 
   if (isLoading) {
     return <LoadingPage message="Loading product..." />;
@@ -143,9 +139,8 @@ const FarmerProductDetailPage: React.FC = () => {
                 <button
                   key={idx}
                   onClick={() => setCurrentImageIndex(idx)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    idx === currentImageIndex ? 'w-6 bg-white' : 'bg-white/50'
-                  }`}
+                  className={`w-2 h-2 rounded-full transition-all ${idx === currentImageIndex ? 'w-6 bg-white' : 'bg-white/50'
+                    }`}
                 />
               ))}
             </div>
@@ -166,9 +161,8 @@ const FarmerProductDetailPage: React.FC = () => {
               <button
                 key={idx}
                 onClick={() => setCurrentImageIndex(idx)}
-                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                  idx === currentImageIndex ? 'border-primary' : 'border-transparent'
-                }`}
+                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${idx === currentImageIndex ? 'border-primary' : 'border-transparent'
+                  }`}
               >
                 <img
                   src={getImageUrl(img)}

@@ -9,7 +9,7 @@ import {
 } from '@/components/common';
 import { ordersApi } from '@/services/api';
 import { formatCurrency, formatDate } from '@/utils/formatters';
-import { API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 import type { OrderStatus } from '@/types';
 
 const statusTabs: { label: string; value: OrderStatus | 'all' }[] = [
@@ -43,11 +43,10 @@ const OrdersPage: React.FC = () => {
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value)}
-              className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.value
+              className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.value
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -90,11 +89,7 @@ const OrdersPage: React.FC = () => {
                         {order.items.slice(0, 3).map((item, idx) => (
                           <img
                             key={idx}
-                            src={
-                              item.product?.primary_image_url
-                                ? `${API_BASE_URL}${item.product.primary_image_url}`
-                                : '/placeholder-product.jpg'
-                            }
+                            src={getImageUrl(item.product?.primary_image_url)}
                             alt=""
                             className="w-10 h-10 rounded-lg border-2 border-white object-cover bg-gray-100"
                           />

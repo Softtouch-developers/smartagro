@@ -1,5 +1,5 @@
 import apiClient from '../api-client';
-import type { User, UserMode } from '../types';
+import type { User, UserMode, UserRole } from '../types';
 
 export interface SignupData {
   phone_number: string;
@@ -33,7 +33,7 @@ export interface AuthResponse {
 }
 
 // Auth endpoints are at /auth, not /api/v1/auth
-const AUTH_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) 
+const AUTH_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL)
   ? import.meta.env.VITE_API_BASE_URL.replace('/api/v1', '')
   : 'http://localhost:8000';
 
@@ -41,20 +41,20 @@ const AUTH_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VI
 function transformBackendUser(backendUser: any): User {
   // Ensure roles array is always present
   let roles = backendUser.roles || getRolesFromUserType(backendUser.user_type);
-  
+
   // Determine default mode based on user_type
   let defaultMode: UserMode = 'buyer';
   const userType = backendUser.user_type?.toUpperCase();
   if (userType === 'FARMER') {
     defaultMode = 'farmer';
   }
-  
+
   // current_mode from backend might be uppercase, normalize it
   let currentMode = defaultMode;
   if (backendUser.current_mode) {
     currentMode = backendUser.current_mode.toLowerCase() as UserMode;
   }
-  
+
   return {
     id: String(backendUser.id || backendUser.user_id), // Convert number to string
     phone_number: backendUser.phone_number,
@@ -104,11 +104,11 @@ export const authService = {
       password: data.password,
       user_type: data.user_type,
     };
-    
+
     if (data.email) {
       signupPayload.email = data.email;
     }
-    
+
     if (data.user_type === 'FARMER') {
       if (data.region) signupPayload.region = data.region;
       if (data.district) signupPayload.district = data.district;
@@ -116,12 +116,12 @@ export const authService = {
       if (data.farm_name) signupPayload.farm_name = data.farm_name;
       if (data.farm_size_acres) signupPayload.farm_size_acres = data.farm_size_acres;
     }
-    
+
     // Use full URL for auth endpoints since they're not under /api/v1
     const url = `${AUTH_BASE_URL}/auth/signup`;
     console.log('Signup URL:', url);
     console.log('Signup payload:', signupPayload);
-    
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -130,18 +130,18 @@ export const authService = {
         },
         body: JSON.stringify(signupPayload),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
           detail: response.statusText,
         }));
         // Backend returns { detail: { code: "...", message: "..." } } or { detail: "..." }
-        const errorMessage = typeof errorData.detail === 'string' 
-          ? errorData.detail 
+        const errorMessage = typeof errorData.detail === 'string'
+          ? errorData.detail
           : errorData.detail?.message || errorData.message || 'Signup failed';
         throw new Error(errorMessage);
       }
-      
+
       return response.json();
     } catch (error) {
       console.error('Signup fetch error:', error);
@@ -160,24 +160,24 @@ export const authService = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({
         detail: response.statusText,
       }));
-      const errorMessage = typeof errorData.detail === 'string' 
-        ? errorData.detail 
+      const errorMessage = typeof errorData.detail === 'string'
+        ? errorData.detail
         : errorData.detail?.message || errorData.message || 'OTP verification failed';
       throw new Error(errorMessage);
     }
-    
+
     const result = await response.json();
     console.log('Login response:', result);
-    
+
     // Transform the user data
     const transformedUser = transformBackendUser(result.user);
     console.log('Transformed user:', transformedUser);
-    
+
     // Handle both response formats
     const authResponse: AuthResponse = {
       access_token: result.access_token || result.tokens?.access_token,
@@ -185,7 +185,7 @@ export const authService = {
       token_type: result.token_type || 'bearer',
       user: transformedUser,
     };
-    
+
     apiClient.setTokens(authResponse.access_token, authResponse.refresh_token);
     localStorage.setItem('user', JSON.stringify(transformedUser));
     return authResponse;
@@ -199,14 +199,14 @@ export const authService = {
       },
       body: JSON.stringify({ user_id, otp_type }),
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({
         detail: response.statusText,
       }));
       throw new Error(errorData.detail || errorData.message || 'Failed to resend OTP');
     }
-    
+
     return response.json();
   },
 
@@ -218,17 +218,17 @@ export const authService = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({
         detail: response.statusText,
       }));
-      const errorMessage = typeof errorData.detail === 'string' 
-        ? errorData.detail 
+      const errorMessage = typeof errorData.detail === 'string'
+        ? errorData.detail
         : errorData.detail?.message || errorData.message || 'Login failed';
       throw new Error(errorMessage);
     }
-    
+
     const result = await response.json();
     // Handle both response formats
     const authResponse: AuthResponse = {
@@ -237,7 +237,7 @@ export const authService = {
       token_type: result.token_type || 'bearer',
       user: transformBackendUser(result.user),
     };
-    
+
     apiClient.setTokens(authResponse.access_token, authResponse.refresh_token);
     localStorage.setItem('user', JSON.stringify(authResponse.user));
     return authResponse;
@@ -289,14 +289,14 @@ export const authService = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({
         detail: response.statusText,
       }));
       throw new Error(errorData.detail || errorData.message || 'Password reset failed');
     }
-    
+
     return response.json();
   },
 

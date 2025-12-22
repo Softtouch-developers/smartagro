@@ -25,6 +25,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { useToast } from '@/stores/uiStore';
 import { formatCurrency, formatDate, formatQuantity } from '@/utils/formatters';
 import { API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,21 +61,7 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const getImageUrl = (path: string | null | undefined) => {
-    if (!path) return '/placeholder-product.jpg';
-    if (path.startsWith('http')) return path;
 
-    // If path starts with uploads/, append to base URL (stripping /api/v1 if present)
-    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
-    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
-
-    // Ensure path starts with uploads/ if it's a local file
-    if (!cleanPath.startsWith('uploads/')) {
-      cleanPath = `uploads/${cleanPath}`;
-    }
-
-    return `${baseUrl}/${cleanPath}`;
-  };
 
   const images = [
     product.primary_image_url,
@@ -99,15 +86,13 @@ const ProductDetailPage: React.FC = () => {
       });
       toast.success(`${product.product_name} added to cart`);
     } catch (error: any) {
-      console.log('AddToCart Error:', error);
-      console.log('Error Response:', error?.response);
-      console.log('Error Detail:', error?.response?.data?.detail);
+      console.error('AddToCart Error:', error);
 
       // Check for different farmer error
-      if (error?.response?.data?.detail?.code === 'DIFFERENT_FARMER') {
+      if (error?.code === 'DIFFERENT_FARMER') {
         setShowClearCartDialog(true);
       } else {
-        toast.error('Failed to add to cart');
+        toast.error(error.message || 'Failed to add to cart');
       }
     }
   };

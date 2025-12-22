@@ -26,7 +26,7 @@ export const agentService = {
   createChatStream(data: ChatRequest): EventSource {
     const accessToken = localStorage.getItem('access_token');
     const baseURL = apiClient['baseURL'];
-    
+
     const params = new URLSearchParams({
       message: data.message,
       ...(data.session_id && { session_id: data.session_id }),
@@ -44,7 +44,11 @@ export const agentService = {
   },
 
   async uploadFile(file: File): Promise<{ filename: string; url: string }> {
-    return apiClient.uploadFile('/agent/chat/upload', file, 'document');
+    const response = await apiClient.uploadFile('/agent/chat/upload', file, 'document');
+    return {
+      filename: file.name,
+      url: response.file_url
+    };
   },
 
   async getSessions(): Promise<AgentSession[]> {

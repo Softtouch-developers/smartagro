@@ -30,7 +30,7 @@ export const chatService = {
     const conversations = await apiClient.get<Conversation[]>(
       `/chat/conversations?limit=${pageSize}`
     );
-    
+
     // Wrap in paginated response format for frontend compatibility
     return {
       items: conversations || [],
@@ -51,7 +51,7 @@ export const chatService = {
     const messages = await apiClient.get<Message[]>(
       `/chat/conversations/${conversationId}/messages?limit=${pageSize}&skip=${(page - 1) * pageSize}`
     );
-    
+
     // Wrap in paginated response format for frontend compatibility
     return {
       items: messages || [],
@@ -71,7 +71,12 @@ export const chatService = {
   },
 
   async uploadVoiceNote(file: File): Promise<{ success: boolean; voice_note_url: string; message: string }> {
-    return apiClient.uploadFile('/chat/upload/voice', file, 'voice');
+    const response = await apiClient.uploadFile('/chat/upload/voice', file, 'voice');
+    return {
+      success: response.success,
+      voice_note_url: response.file_url,
+      message: response.message
+    };
   },
 
   async uploadImage(file: File): Promise<{ file_url: string; message: string }> {

@@ -12,6 +12,7 @@ import {
 import { productsApi, cartApi } from '@/services/api';
 import { useToast } from '@/stores/uiStore';
 import { getErrorMessage } from '@/services/api/client';
+import { getImageUrl } from '@/utils/images';
 import type { Product } from '@/types';
 
 const WishlistPage: React.FC = () => {
@@ -91,7 +92,7 @@ const WishlistPage: React.FC = () => {
                   onClick={() => navigate(`/products/${item.product.id}`)}
                 >
                   <img
-                    src={item.product.primary_image_url || '/placeholder-product.jpg'}
+                    src={getImageUrl(item.product.primary_image_url)}
                     alt={item.product.product_name}
                     className="w-24 h-24 rounded-lg object-cover bg-gray-100"
                   />

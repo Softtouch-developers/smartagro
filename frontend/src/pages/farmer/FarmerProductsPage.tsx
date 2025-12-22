@@ -14,7 +14,7 @@ import {
 import { productsApi } from '@/services/api';
 import { useToast } from '@/stores/uiStore';
 import { formatCurrency } from '@/utils/formatters';
-import { API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 import type { Product } from '@/types';
 
 const FarmerProductsPage: React.FC = () => {
@@ -107,11 +107,7 @@ const FarmerProductsPage: React.FC = () => {
               className="bg-white rounded-xl border border-gray-100 p-4 flex gap-4"
             >
               <img
-                src={
-                  product.primary_image_url
-                    ? `${API_BASE_URL}${product.primary_image_url}`
-                    : '/placeholder-product.jpg'
-                }
+                src={getImageUrl(product.primary_image_url)}
                 alt={product.product_name}
                 className="w-20 h-20 rounded-lg object-cover bg-gray-100 cursor-pointer"
                 onClick={() => navigate(`/farmer/products/${product.id}`)}

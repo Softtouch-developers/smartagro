@@ -79,6 +79,11 @@ export function getErrorMessage(error: unknown): string {
       return detail;
     }
 
+    // Handle object with message property (e.g. { code: "ERROR", message: "..." })
+    if (typeof detail === 'object' && detail !== null && 'message' in detail) {
+      return (detail as { message: string }).message;
+    }
+
     return axiosError.message || 'An error occurred';
   }
   if (error instanceof Error) {

@@ -1,6 +1,7 @@
 // User types
 export type UserType = 'FARMER' | 'BUYER' | 'ADMIN';
 export type UserMode = 'FARMER' | 'BUYER';
+export type UserRole = 'farmer' | 'buyer' | 'admin';
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION' | 'DEACTIVATED';
 
 export interface User {
@@ -19,6 +20,7 @@ export interface User {
   gps_address?: string;
   can_buy: boolean;
   current_mode: UserMode | null;
+  roles: UserRole[];
   // Farmer specific
   farm_name: string | null;
   farm_size_acres: number | null;

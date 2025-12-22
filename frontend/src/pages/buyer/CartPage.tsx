@@ -12,6 +12,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { useToast } from '@/stores/uiStore';
 import { formatCurrency, formatCountdown } from '@/utils/formatters';
 import { PLATFORM_CONFIG, API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 
 const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -90,22 +91,7 @@ const CartPage: React.FC = () => {
     );
   }
 
-  // Construct image URL
-  const getImageUrl = (path: string | null | undefined) => {
-    if (!path) return '/placeholder-product.jpg';
-    if (path.startsWith('http')) return path;
 
-    // If path starts with uploads/, append to base URL (stripping /api/v1 if present)
-    const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
-    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
-
-    // Ensure path starts with uploads/ if it's a local file
-    if (!cleanPath.startsWith('uploads/')) {
-      cleanPath = `uploads/${cleanPath}`;
-    }
-
-    return `${baseUrl}/${cleanPath}`;
-  };
 
   const isExpiringSoon = timeRemaining < 30 * 60; // Less than 30 minutes
 
@@ -226,13 +212,10 @@ const CartPage: React.FC = () => {
               <span>Platform Fee ({PLATFORM_CONFIG.PLATFORM_FEE_PERCENTAGE}%)</span>
               <span>{formatCurrency(cart.platform_fee)}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
-              <span>Delivery Fee</span>
-              <span>{formatCurrency(cart.delivery_fee)}</span>
-            </div>
+
             <div className="flex justify-between font-semibold text-gray-900 text-lg pt-2 border-t">
               <span>Total</span>
-              <span>{formatCurrency(cart.total)}</span>
+              <span>{formatCurrency(cart.subtotal + cart.platform_fee)}</span>
             </div>
           </div>
 

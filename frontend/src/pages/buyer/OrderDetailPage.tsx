@@ -26,7 +26,7 @@ import { ordersApi, paymentApi } from '@/services/api';
 import { useToast } from '@/stores/uiStore';
 import { getErrorMessage } from '@/services/api/client';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/utils/formatters';
-import { API_BASE_URL } from '@/utils/constants';
+import { getImageUrl } from '@/utils/images';
 
 const orderSteps = [
   { key: 'PENDING', label: 'Order Placed', icon: Package },
@@ -106,11 +106,7 @@ const OrderDetailPage: React.FC = () => {
     },
   });
 
-  const getImageUrl = (url: string) => {
-    if (!url) return '/placeholder-product.jpg';
-    if (url.startsWith('http')) return url;
-    return `${API_BASE_URL}${url}`;
-  };
+
 
   const getCurrentStepIndex = () => {
     if (!order) return 0;
@@ -188,18 +184,16 @@ const OrderDetailPage: React.FC = () => {
                   return (
                     <div key={step.key} className="flex flex-col items-center">
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${
-                          isCompleted
+                        className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${isCompleted
                             ? 'bg-primary text-white'
                             : 'bg-gray-200 text-gray-400'
-                        } ${isCurrent ? 'ring-4 ring-primary/20' : ''}`}
+                          } ${isCurrent ? 'ring-4 ring-primary/20' : ''}`}
                       >
                         <step.icon className="w-5 h-5" />
                       </div>
                       <p
-                        className={`text-xs mt-2 text-center ${
-                          isCompleted ? 'text-primary font-medium' : 'text-gray-400'
-                        }`}
+                        className={`text-xs mt-2 text-center ${isCompleted ? 'text-primary font-medium' : 'text-gray-400'
+                          }`}
                       >
                         {step.label}
                       </p>
@@ -309,8 +303,8 @@ const OrderDetailPage: React.FC = () => {
                 order.payment_status === 'PAID'
                   ? 'success'
                   : order.payment_status === 'PENDING'
-                  ? 'warning'
-                  : 'default'
+                    ? 'warning'
+                    : 'default'
               }
             >
               {order.payment_status || 'PAID'}
@@ -433,11 +427,10 @@ const OrderDetailPage: React.FC = () => {
                   className="p-1"
                 >
                   <Star
-                    className={`w-8 h-8 ${
-                      star <= rating
+                    className={`w-8 h-8 ${star <= rating
                         ? 'fill-amber-400 text-amber-400'
                         : 'text-gray-300'
-                    }`}
+                      }`}
                   />
                 </button>
               ))}

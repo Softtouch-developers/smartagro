@@ -5,6 +5,20 @@ interface RequestConfig extends RequestInit {
   skipAuth?: boolean;
 }
 
+export class ApiError extends Error {
+  status: number;
+  data: any;
+  code?: string;
+
+  constructor(message: string, status: number, data: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+    this.code = data?.detail?.code || data?.code;
+  }
+}
+
 class ApiClient {
   private baseURL: string;
 
@@ -76,7 +90,7 @@ class ApiClient {
     if (!skipAuth) {
       const accessToken = this.getAccessToken();
       if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
       }
     }
 
@@ -95,7 +109,7 @@ class ApiClient {
           // Retry the request with new token
           const newToken = this.getAccessToken();
           if (newToken) {
-            headers['Authorization'] = `Bearer ${newToken}`;
+            (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
           }
           response = await fetch(url, {
             ...fetchConfig,
@@ -108,7 +122,7 @@ class ApiClient {
         const errorData = await response.json().catch(() => ({
           detail: response.statusText,
         }));
-        
+
         // Extract detailed error message
         let errorMessage = response.statusText;
         if (errorData.detail) {
@@ -118,16 +132,16 @@ class ApiClient {
             errorMessage = errorData.detail.message;
           } else if (Array.isArray(errorData.detail)) {
             // Pydantic validation errors
-            errorMessage = errorData.detail.map((e: any) => 
+            errorMessage = errorData.detail.map((e: any) =>
               `${e.loc?.join('.')} - ${e.msg}`
             ).join(', ');
           }
         } else if (errorData.message) {
           errorMessage = errorData.message;
         }
-        
+
         console.error('API Error:', { status: response.status, url, errorData });
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, response.status, errorData);
       }
 
       // Handle 204 No Content
@@ -137,10 +151,13 @@ class ApiClient {
 
       return await response.json();
     } catch (error) {
-      if (error instanceof Error) {
+      if (error instanceof ApiError) {
         throw error;
       }
-      throw new Error('Network request failed');
+      if (error instanceof Error) {
+        throw new ApiError(error.message, 0, null);
+      }
+      throw new ApiError('Network request failed', 0, null);
     }
   }
 
@@ -200,7 +217,7 @@ class ApiClient {
     const accessToken = this.getAccessToken();
     const headers: HeadersInit = {};
     if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
     }
 
     const url = `${this.baseURL}/storage/upload/${type}`;
