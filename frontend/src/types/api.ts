@@ -133,6 +133,14 @@ export interface OrdersResponse {
   limit: number;
 }
 
+export interface OrderDetailResponse {
+  success: boolean;
+  order: Order;
+  product?: Record<string, unknown>;
+  seller?: Record<string, unknown>;
+  buyer?: Record<string, unknown>;
+}
+
 // Notification types
 export interface NotificationsQuery {
   is_read?: boolean;

@@ -7,13 +7,17 @@ import {
   ChevronRight,
   User,
   MapPin,
+  Truck,
+  Store,
+  CheckCircle,
+  Clock,
 } from 'lucide-react';
 import {
   Input,
   ListItemSkeleton,
   EmptyState,
 } from '@/components/common';
-import { ordersApi } from '@/services/api';
+import { adminApi } from '@/services/api';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import type { OrderStatus } from '@/types';
 
@@ -21,7 +25,7 @@ const statusTabs: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
   { label: 'Pending', value: 'PENDING' },
   { label: 'Paid', value: 'PAID' },
-  { label: 'Processing', value: 'PROCESSING' },
+  { label: 'Confirmed', value: 'CONFIRMED' },
   { label: 'Shipped', value: 'SHIPPED' },
   { label: 'Delivered', value: 'DELIVERED' },
   { label: 'Completed', value: 'COMPLETED' },
@@ -33,7 +37,7 @@ const getStatusColor = (status: OrderStatus): string => {
   const colors: Record<OrderStatus, string> = {
     PENDING: 'bg-yellow-100 text-yellow-700',
     PAID: 'bg-blue-100 text-blue-700',
-    PROCESSING: 'bg-purple-100 text-purple-700',
+    CONFIRMED: 'bg-purple-100 text-purple-700',
     SHIPPED: 'bg-indigo-100 text-indigo-700',
     DELIVERED: 'bg-teal-100 text-teal-700',
     COMPLETED: 'bg-green-100 text-green-700',
@@ -52,7 +56,7 @@ const AdminOrdersPage: React.FC = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'orders', activeTab],
     queryFn: () =>
-      ordersApi.getOrders({
+      adminApi.getOrders({
         status: activeTab === 'all' ? undefined : activeTab,
         limit: 100,
       }),
@@ -87,11 +91,10 @@ const AdminOrdersPage: React.FC = () => {
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value)}
-              className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.value
+              className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.value
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -133,18 +136,53 @@ const AdminOrdersPage: React.FC = () => {
                 </div>
 
                 {/* Buyer & Seller Info */}
-                <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                   {order.buyer && (
                     <div className="flex items-center gap-1">
                       <User className="w-4 h-4" />
                       <span>Buyer: {order.buyer.full_name}</span>
                     </div>
                   )}
-                  {order.delivery_address && (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      <span className="truncate max-w-[200px]">{order.delivery_address}</span>
-                    </div>
+                  {/* Delivery Method Indicator */}
+                  <div className="flex items-center gap-1">
+                    {order.delivery_method === 'PICKUP' ? (
+                      <>
+                        <Store className="w-4 h-4 text-orange-500" />
+                        <span className="text-orange-600 font-medium">Pickup</span>
+                      </>
+                    ) : (
+                      <>
+                        <Truck className="w-4 h-4 text-blue-500" />
+                        <span className="text-blue-600">Delivery</span>
+                      </>
+                    )}
+                  </div>
+                  {/* Address or Pickup Status */}
+                  {order.delivery_method === 'PICKUP' ? (
+                    order.status === 'SHIPPED' && (
+                      <div className="flex items-center gap-1">
+                        {order.pickup_confirmed_by_farmer && order.pickup_confirmed_by_buyer ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <span className="text-green-600">Pickup Complete</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-4 h-4 text-amber-500" />
+                            <span className="text-amber-600">
+                              Awaiting: {!order.pickup_confirmed_by_farmer && 'Farmer'}{!order.pickup_confirmed_by_farmer && !order.pickup_confirmed_by_buyer && ' & '}{!order.pickup_confirmed_by_buyer && 'Buyer'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    order.delivery_address && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        <span className="truncate max-w-[200px]">{order.delivery_address}</span>
+                      </div>
+                    )
                   )}
                 </div>
 

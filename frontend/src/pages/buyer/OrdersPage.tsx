@@ -15,9 +15,11 @@ import type { OrderStatus } from '@/types';
 const statusTabs: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
   { label: 'Pending', value: 'PENDING' },
-  { label: 'Processing', value: 'PROCESSING' },
+  { label: 'Paid', value: 'PAID' },
+  { label: 'Processing', value: 'CONFIRMED' },
   { label: 'Shipped', value: 'SHIPPED' },
-  { label: 'Completed', value: 'COMPLETED' },
+  { label: 'Delivered', value: 'DELIVERED' },
+  { label: 'Cancelled', value: 'CANCELLED' },
 ];
 
 const OrdersPage: React.FC = () => {
@@ -44,8 +46,8 @@ const OrdersPage: React.FC = () => {
               key={tab.value}
               onClick={() => setActiveTab(tab.value)}
               className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.value
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
             >
               {tab.label}

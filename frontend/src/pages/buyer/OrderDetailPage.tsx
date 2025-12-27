@@ -14,6 +14,7 @@ import {
   Star,
   AlertCircle,
   XCircle,
+  CreditCard,
 } from 'lucide-react';
 import {
   Button,
@@ -30,7 +31,7 @@ import { getImageUrl } from '@/utils/images';
 
 const orderSteps = [
   { key: 'PENDING', label: 'Order Placed', icon: Package },
-  { key: 'PROCESSING', label: 'Processing', icon: Clock },
+  { key: 'CONFIRMED', label: 'Confirmed', icon: Clock },
   { key: 'SHIPPED', label: 'Shipped', icon: Truck },
   { key: 'DELIVERED', label: 'Delivered', icon: CheckCircle },
 ];
@@ -45,6 +46,8 @@ const OrderDetailPage: React.FC = () => {
   const [showDispute, setShowDispute] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
 
@@ -55,7 +58,7 @@ const OrderDetailPage: React.FC = () => {
     enabled: !!id,
   });
 
-  const order = data?.order || data;
+  const order = data?.order;
 
   // Confirm delivery mutation
   const confirmDeliveryMutation = useMutation({
@@ -94,12 +97,45 @@ const OrderDetailPage: React.FC = () => {
     },
   });
 
+  // Confirm pickup mutation (for PICKUP orders)
+  const confirmPickupMutation = useMutation({
+    mutationFn: () => ordersApi.confirmPickup(Number(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['order', id] });
+      toast.success('Pickup confirmed!');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+
   // Cancel order mutation
   const cancelMutation = useMutation({
-    mutationFn: () => ordersApi.cancelOrder(Number(id)),
+    mutationFn: () => ordersApi.cancelOrder(Number(id), cancelReason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       toast.success('Order cancelled');
+      navigate('/orders');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+
+  // Initialize payment mutation
+  const paymentMutation = useMutation({
+    mutationFn: async () => {
+      return paymentApi.initializePayment({
+        order_id: Number(id),
+        callback_url: `${window.location.origin}/payment/callback`,
+      });
+    },
+    onSuccess: (response) => {
+      if (response.authorization_url) {
+        window.location.href = response.authorization_url;
+      } else {
+        toast.error('Payment initialization failed');
+      }
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));
@@ -185,8 +221,8 @@ const OrderDetailPage: React.FC = () => {
                     <div key={step.key} className="flex flex-col items-center">
                       <div
                         className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${isCompleted
-                            ? 'bg-primary text-white'
-                            : 'bg-gray-200 text-gray-400'
+                          ? 'bg-primary text-white'
+                          : 'bg-gray-200 text-gray-400'
                           } ${isCurrent ? 'ring-4 ring-primary/20' : ''}`}
                       >
                         <step.icon className="w-5 h-5" />
@@ -317,7 +353,17 @@ const OrderDetailPage: React.FC = () => {
       {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
         <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4">
           <div className="max-w-lg mx-auto flex gap-3">
-            {order.status === 'SHIPPED' && (
+            {order.payment_status === 'PENDING' && (
+              <Button
+                fullWidth
+                onClick={() => paymentMutation.mutate()}
+                isLoading={paymentMutation.isPending}
+                leftIcon={<CreditCard className="w-4 h-4" />}
+              >
+                Pay Now
+              </Button>
+            )}
+            {order.status === 'SHIPPED' && order.delivery_method !== 'PICKUP' && (
               <Button
                 fullWidth
                 onClick={() => setShowConfirmDelivery(true)}
@@ -326,17 +372,27 @@ const OrderDetailPage: React.FC = () => {
                 Confirm Delivery
               </Button>
             )}
+            {order.status === 'SHIPPED' && order.delivery_method === 'PICKUP' && !order.pickup_confirmed_by_buyer && (
+              <Button
+                fullWidth
+                onClick={() => confirmPickupMutation.mutate()}
+                isLoading={confirmPickupMutation.isPending}
+                leftIcon={<CheckCircle className="w-4 h-4" />}
+              >
+                Confirm Pickup
+              </Button>
+            )}
             {order.status === 'PENDING' && (
               <Button
                 fullWidth
                 variant="outline"
-                onClick={() => cancelMutation.mutate()}
+                onClick={() => setShowCancel(true)}
                 isLoading={cancelMutation.isPending}
               >
                 Cancel Order
               </Button>
             )}
-            {(order.status === 'PROCESSING' || order.status === 'SHIPPED') && (
+            {(order.status === 'CONFIRMED' || order.status === 'SHIPPED') && (
               <Button
                 fullWidth
                 variant="outline"
@@ -361,6 +417,23 @@ const OrderDetailPage: React.FC = () => {
               Leave a Review
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Pickup Status Info */}
+      {order.status === 'SHIPPED' && order.delivery_method === 'PICKUP' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mx-4 mb-4 text-sm">
+          <p className="text-amber-800">
+            {order.pickup_confirmed_by_buyer && !order.pickup_confirmed_by_farmer && (
+              <>You've confirmed pickup. Waiting for seller to confirm.</>
+            )}
+            {!order.pickup_confirmed_by_buyer && order.pickup_confirmed_by_farmer && (
+              <>Seller has confirmed pickup. Please confirm to complete the order.</>
+            )}
+            {!order.pickup_confirmed_by_buyer && !order.pickup_confirmed_by_farmer && (
+              <>Order is ready for pickup. Both you and the seller need to confirm when you pick up.</>
+            )}
+          </p>
         </div>
       )}
 
@@ -428,8 +501,8 @@ const OrderDetailPage: React.FC = () => {
                 >
                   <Star
                     className={`w-8 h-8 ${star <= rating
-                        ? 'fill-amber-400 text-amber-400'
-                        : 'text-gray-300'
+                      ? 'fill-amber-400 text-amber-400'
+                      : 'text-gray-300'
                       }`}
                   />
                 </button>
@@ -459,6 +532,42 @@ const OrderDetailPage: React.FC = () => {
               }}
             >
               Submit Review
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Cancel Order Modal */}
+      <Modal
+        isOpen={showCancel}
+        onClose={() => setShowCancel(false)}
+        title="Cancel Order"
+      >
+        <div className="p-4">
+          <p className="text-sm text-gray-600 mb-4">
+            Are you sure you want to cancel this order? This action cannot be undone.
+          </p>
+          <textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Reason for cancellation (optional)"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none h-32"
+          />
+          <div className="flex gap-3 mt-4">
+            <Button
+              fullWidth
+              variant="outline"
+              onClick={() => setShowCancel(false)}
+            >
+              Keep Order
+            </Button>
+            <Button
+              fullWidth
+              variant="danger"
+              onClick={() => cancelMutation.mutate()}
+              isLoading={cancelMutation.isPending}
+            >
+              Yes, Cancel Order
             </Button>
           </div>
         </div>

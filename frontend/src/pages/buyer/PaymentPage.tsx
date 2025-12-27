@@ -87,7 +87,7 @@ const PaymentPage: React.FC = () => {
     );
   }
 
-  const orderData = order.order || order;
+  const orderData = order.order;
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 pb-24">

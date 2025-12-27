@@ -5,3 +5,4 @@ export { default as AdminProductsPage } from './AdminProductsPage';
 export { default as AdminDisputesPage } from './AdminDisputesPage';
 export { default as AdminReportsPage } from './AdminReportsPage';
 export { default as AdminSettingsPage } from './AdminSettingsPage';
+export { default as AdminKnowledgePage } from './AdminKnowledgePage';

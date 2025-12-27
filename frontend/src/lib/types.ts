@@ -228,7 +228,7 @@ export interface EscrowTransaction {
   seller_id: string;
   amount: number;
   status: 'pending' | 'held' | 'released' | 'refunded';
-  payment_reference?: string;
+  paystack_reference?: string;
   authorization_url?: string;
   created_at: string;
   updated_at: string;

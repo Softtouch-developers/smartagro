@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   LogOut,
+  Database,
 } from 'lucide-react';
 import { LoadingPage, Button, ConfirmDialog } from '@/components/common';
 import { adminApi } from '@/services/api';
@@ -254,7 +255,7 @@ const AdminDashboard: React.FC = () => {
       {/* Quick Actions */}
       <div className="bg-white rounded-xl p-6 border border-gray-100">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <Link
             to="/admin/users"
             className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -282,6 +283,13 @@ const AdminDashboard: React.FC = () => {
           >
             <Activity className="w-5 h-5 text-green-600" />
             <span className="font-medium">Settings</span>
+          </Link>
+          <Link
+            to="/admin/knowledge"
+            className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <Database className="w-5 h-5 text-teal-600" />
+            <span className="font-medium">Knowledge Base</span>
           </Link>
         </div>
       </div>

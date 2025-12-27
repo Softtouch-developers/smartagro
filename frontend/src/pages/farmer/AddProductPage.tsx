@@ -73,8 +73,18 @@ const AddProductPage: React.FC = () => {
 
     if (!formData.product_name || !formData.category || !formData.quantity_available ||
       !formData.unit_of_measure || !formData.price_per_unit || !formData.description) {
-      toast.error('Please fill in all required fields, including description');
+      toast.error('Please fill details for all fields.');
       return;
+    }
+
+    if (formData.harvest_date) {
+      const harvestDate = new Date(formData.harvest_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (harvestDate > today) {
+        toast.error('Harvest date cannot be in the future.');
+        return;
+      }
     }
 
     setIsLoading(true);

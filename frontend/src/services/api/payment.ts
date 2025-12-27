@@ -23,7 +23,7 @@ export interface EscrowDetails {
   platform_fee: number;
   seller_amount: number;
   status: 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'DISPUTED';
-  payment_reference: string;
+  paystack_reference: string;
   funded_at: string | null;
   released_at: string | null;
   refunded_at: string | null;
@@ -48,7 +48,7 @@ export interface PaymentHistoryItem {
   order_id: number;
   amount: number;
   status: string;
-  payment_reference: string;
+  paystack_reference: string;
   created_at: string;
   product_name?: string;
   seller_name?: string;

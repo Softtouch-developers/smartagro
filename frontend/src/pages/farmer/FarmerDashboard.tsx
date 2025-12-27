@@ -20,6 +20,7 @@ import {
 import { productsApi, ordersApi } from '@/services/api';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency, formatRelativeTime } from '@/utils/formatters';
+import { getImageUrl } from '@/utils/images';
 
 const FarmerDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -198,7 +199,7 @@ const FarmerDashboard: React.FC = () => {
                 className="bg-white rounded-xl border border-gray-100 p-4 flex gap-4 cursor-pointer hover:shadow-sm transition-shadow"
               >
                 <img
-                  src={product.primary_image_url || '/placeholder-product.jpg'}
+                  src={getImageUrl(product.primary_image_url)}
                   alt={product.product_name}
                   className="w-16 h-16 rounded-lg object-cover bg-gray-100"
                 />
@@ -211,11 +212,10 @@ const FarmerDashboard: React.FC = () => {
                   </p>
                   <div className="flex items-center gap-3 mt-1 text-xs">
                     <span
-                      className={`${
-                        product.status === 'AVAILABLE'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                      }`}
+                      className={`${product.status === 'AVAILABLE'
+                        ? 'text-green-600'
+                        : 'text-gray-500'
+                        }`}
                     >
                       {product.status}
                     </span>

@@ -55,7 +55,7 @@ const FarmerEarningsPage: React.FC = () => {
 
     // Calculate pending (in escrow)
     const pendingOrders = ordersData?.orders?.filter(
-      (o) => o.status === 'PROCESSING' || o.status === 'SHIPPED'
+      (o) => o.status === 'CONFIRMED' || o.status === 'SHIPPED'
     ) || [];
     const pendingAmount = pendingOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
 

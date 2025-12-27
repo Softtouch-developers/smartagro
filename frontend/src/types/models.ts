@@ -130,7 +130,7 @@ export interface Cart {
 export type OrderStatus =
   | 'PENDING'
   | 'PAID'
-  | 'PROCESSING'
+  | 'CONFIRMED'
   | 'SHIPPED'
   | 'DELIVERED'
   | 'COMPLETED'
@@ -161,6 +161,7 @@ export interface Order {
   seller_id: number;
   product_id: number | null;
   quantity_ordered: number;
+  quantity: number; // Added
   unit_price: number;
   subtotal: number;
   platform_fee: number;
@@ -173,15 +174,27 @@ export interface Order {
   delivery_phone: string | null;
   delivery_notes: string | null;
   status: OrderStatus;
+  payment_status: string; // Added
   carrier: string | null;
   tracking_number: string | null;
   delivery_confirmation_code: string | null;
+  cancelled_reason?: string; // Added
   created_at: string;
   updated_at: string;
   shipped_at: string | null;
   delivered_at: string | null;
   // Relationships
   product_name?: string; // Added for frontend compatibility
+  product_image?: string; // Added
+  unit_of_measure?: string; // Added
+  seller_name?: string;
+  seller_phone?: string;
+  buyer_name?: string;
+  buyer_phone?: string;
+  // Pickup confirmation (for PICKUP delivery method)
+  pickup_confirmed_by_farmer?: boolean;
+  pickup_confirmed_by_buyer?: boolean;
+  pickup_confirmed_at?: string;
   items?: OrderItem[];
   buyer?: User;
   seller?: User;

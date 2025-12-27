@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { OrdersQuery, OrdersResponse, MessageResponse } from '@/types';
+import type { OrdersQuery, OrdersResponse, OrderDetailResponse, MessageResponse } from '@/types';
 import type { Order, OrderStatus } from '@/types';
 
 export const ordersApi = {
@@ -14,8 +14,8 @@ export const ordersApi = {
   /**
    * Get single order by ID
    */
-  getOrder: async (id: number): Promise<Order> => {
-    const response = await apiClient.get<Order>(`/api/v1/orders/${id}`);
+  getOrder: async (id: number): Promise<OrderDetailResponse> => {
+    const response = await apiClient.get<OrderDetailResponse>(`/api/v1/orders/${id}`);
     return response.data;
   },
 
@@ -42,7 +42,7 @@ export const ordersApi = {
     id: number,
     data: { carrier?: string; tracking_number?: string }
   ): Promise<Order> => {
-    const response = await apiClient.post<Order>(`/api/v1/orders/${id}/ship`, data);
+    const response = await apiClient.put<Order>(`/api/v1/orders/${id}/ship`, data);
     return response.data;
   },
 
@@ -50,9 +50,17 @@ export const ordersApi = {
    * Confirm delivery (buyer)
    */
   confirmDelivery: async (id: number, confirmationCode?: string): Promise<Order> => {
-    const response = await apiClient.post<Order>(`/api/v1/orders/${id}/confirm-delivery`, {
-      confirmation_code: confirmationCode,
+    const response = await apiClient.put<Order>(`/api/v1/orders/${id}/deliver`, {
+      delivery_confirmation_code: confirmationCode,
     });
+    return response.data;
+  },
+
+  /**
+   * Confirm pickup (for PICKUP orders - both buyer and seller must confirm)
+   */
+  confirmPickup: async (id: number): Promise<Order> => {
+    const response = await apiClient.put<Order>(`/api/v1/orders/${id}/confirm-pickup`);
     return response.data;
   },
 
@@ -60,7 +68,7 @@ export const ordersApi = {
    * Cancel order
    */
   cancelOrder: async (id: number, reason?: string): Promise<Order> => {
-    const response = await apiClient.post<Order>(`/api/v1/orders/${id}/cancel`, { reason });
+    const response = await apiClient.put<Order>(`/api/v1/orders/${id}/cancel`, { reason });
     return response.data;
   },
 

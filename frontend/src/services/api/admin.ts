@@ -219,4 +219,123 @@ export const adminApi = {
     const response = await apiClient.get<OrdersResponse>('/api/v1/orders', { params });
     return response.data;
   },
+
+  // ==================== KNOWLEDGE BASE ====================
+
+  /**
+   * Get knowledge base statistics
+   */
+  getKnowledgeStats: async (): Promise<KnowledgeStats> => {
+    const response = await apiClient.get<KnowledgeStats>('/api/v1/agent/knowledge/stats');
+    return response.data;
+  },
+
+  /**
+   * List knowledge documents
+   */
+  getKnowledgeDocuments: async (params?: {
+    document_type?: string;
+    limit?: number;
+  }): Promise<KnowledgeDocumentsResponse> => {
+    const response = await apiClient.get<KnowledgeDocumentsResponse>(
+      '/api/v1/agent/knowledge/documents',
+      { params }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get a specific knowledge document
+   */
+  getKnowledgeDocument: async (documentId: string): Promise<KnowledgeDocument> => {
+    const response = await apiClient.get<KnowledgeDocument>(
+      `/api/v1/agent/knowledge/documents/${documentId}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Upload a knowledge document
+   * Uses longer timeout since processing and embedding creation takes time
+   */
+  uploadKnowledgeDocument: async (file: File): Promise<KnowledgeUploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<KnowledgeUploadResponse>(
+      '/api/v1/agent/knowledge/upload',
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 200000 // 2 minute timeout for upload + processing
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Delete a knowledge document
+   */
+  deleteKnowledgeDocument: async (documentId: string): Promise<MessageResponse> => {
+    const response = await apiClient.delete<MessageResponse>(
+      `/api/v1/agent/knowledge/documents/${documentId}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Re-index all knowledge documents
+   * Uses longer timeout since indexing can take several minutes
+   */
+  reindexKnowledge: async (forceReindex: boolean = false): Promise<KnowledgeIndexResponse> => {
+    const response = await apiClient.post<KnowledgeIndexResponse>(
+      '/api/v1/agent/knowledge/index',
+      { force_reindex: forceReindex },
+      { timeout: 500000 } // 5 minute timeout for indexing
+    );
+    return response.data;
+  },
 };
+
+// Knowledge Base Types
+export interface KnowledgeStats {
+  total_documents: number;
+  total_chunks: number;
+  by_document_type: Record<string, number>;
+  avg_chunks_per_doc: number;
+}
+
+export interface KnowledgeDocument {
+  document_id: string;
+  title: string;
+  document_type: string;
+  topics: string[];
+  crops: string[];
+  regions: string[];
+  chunk_count: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface KnowledgeDocumentsResponse {
+  documents: KnowledgeDocument[];
+  total: number;
+}
+
+export interface KnowledgeUploadResponse {
+  message: string;
+  filename: string;
+  document_id: string;
+  chunks_created: number;
+  document_type: string;
+  topics: string[];
+  crops: string[];
+}
+
+export interface KnowledgeIndexResponse {
+  message: string;
+  stats: {
+    documents_processed: number;
+    chunks_created: number;
+    errors: number;
+  };
+}

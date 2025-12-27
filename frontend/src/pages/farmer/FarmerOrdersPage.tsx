@@ -29,9 +29,9 @@ import type { Order, OrderStatus } from '@/types';
 const statusTabs: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
   { label: 'New', value: 'PAID' },
-  { label: 'Processing', value: 'PROCESSING' },
+  { label: 'Processing', value: 'CONFIRMED' },
   { label: 'Shipped', value: 'SHIPPED' },
-  { label: 'Completed', value: 'COMPLETED' },
+  { label: 'Delivered', value: 'DELIVERED' },
   { label: 'Cancelled', value: 'CANCELLED' },
 ];
 
@@ -39,7 +39,7 @@ const getStatusConfig = (status: OrderStatus) => {
   const configs: Record<OrderStatus, { color: string; icon: React.ReactNode; label: string }> = {
     PENDING: { color: 'bg-yellow-100 text-yellow-700', icon: <Clock className="w-4 h-4" />, label: 'Pending Payment' },
     PAID: { color: 'bg-blue-100 text-blue-700', icon: <AlertCircle className="w-4 h-4" />, label: 'New Order' },
-    PROCESSING: { color: 'bg-purple-100 text-purple-700', icon: <Package className="w-4 h-4" />, label: 'Processing' },
+    CONFIRMED: { color: 'bg-purple-100 text-purple-700', icon: <Package className="w-4 h-4" />, label: 'Confirmed' },
     SHIPPED: { color: 'bg-indigo-100 text-indigo-700', icon: <Truck className="w-4 h-4" />, label: 'Shipped' },
     DELIVERED: { color: 'bg-teal-100 text-teal-700', icon: <CheckCircle className="w-4 h-4" />, label: 'Delivered' },
     COMPLETED: { color: 'bg-green-100 text-green-700', icon: <CheckCircle className="w-4 h-4" />, label: 'Completed' },
@@ -92,7 +92,7 @@ const FarmerOrdersPage: React.FC = () => {
 
   const processOrderMutation = useMutation({
     mutationFn: (orderId: number) =>
-      ordersApi.updateOrderStatus(orderId, 'PROCESSING'),
+      ordersApi.updateOrderStatus(orderId, 'CONFIRMED'),
     onSuccess: () => {
       toast.success('Order is now being processed!');
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -155,7 +155,7 @@ const FarmerOrdersPage: React.FC = () => {
             {data.orders.map((order) => {
               const statusConfig = getStatusConfig(order.status);
               const isPaid = order.status === 'PAID';
-              const isProcessing = order.status === 'PROCESSING';
+              const isProcessing = order.status === 'CONFIRMED';
 
               return (
                 <div

@@ -45,7 +45,7 @@ const HomePage: React.FC = () => {
       });
       toast.success(`${product.product_name} added to cart`);
     } catch (error) {
-      toast.error('Failed to add to cart');
+      toast.error("You can't have items from different farmers in your cart. Please empty your cart to proceed");
     }
   };
 

@@ -78,7 +78,7 @@ export const UNITS_OF_MEASURE = [
 export const ORDER_STATUS_CONFIG = {
   PENDING: { label: 'Pending', color: 'yellow', bgColor: 'bg-amber-100', textColor: 'text-amber-700' },
   PAID: { label: 'Paid', color: 'blue', bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
-  PROCESSING: { label: 'Processing', color: 'indigo', bgColor: 'bg-indigo-100', textColor: 'text-indigo-700' },
+  CONFIRMED: { label: 'Confirmed', color: 'indigo', bgColor: 'bg-indigo-100', textColor: 'text-indigo-700' },
   SHIPPED: { label: 'Shipped', color: 'purple', bgColor: 'bg-purple-100', textColor: 'text-purple-700' },
   DELIVERED: { label: 'Delivered', color: 'green', bgColor: 'bg-emerald-100', textColor: 'text-emerald-700' },
   COMPLETED: { label: 'Completed', color: 'green', bgColor: 'bg-green-100', textColor: 'text-green-700' },
@@ -102,6 +102,7 @@ export const NAV_ITEMS = {
     { path: '/', label: 'Home', icon: 'Home' },
     { path: '/search', label: 'Search', icon: 'Search' },
     { path: '/cart', label: 'Cart', icon: 'ShoppingCart' },
+    { path: '/orders', label: 'Orders', icon: 'Package' },
     { path: '/messages', label: 'Messages', icon: 'MessageCircle' },
     { path: '/profile', label: 'Profile', icon: 'User' },
   ],

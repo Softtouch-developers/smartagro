@@ -158,7 +158,7 @@ export const useCartStore = create<CartState>((set) => ({
 
 // Helper selectors
 export const selectCartItemCount = (state: CartState): number =>
-  state.cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  state.cart?.items?.length || 0;
 
 export const selectCartTotal = (state: CartState): number =>
   state.cart?.total || 0;

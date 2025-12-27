@@ -33,6 +33,7 @@ import {
   EditProductPage,
   FarmerProductDetailPage,
   FarmerOrdersPage,
+  FarmerOrderDetailPage,
   FarmerEarningsPage,
 } from '@/pages/farmer';
 
@@ -48,6 +49,7 @@ import {
   AdminDisputesPage,
   AdminReportsPage,
   AdminSettingsPage,
+  AdminKnowledgePage,
 } from '@/pages/admin';
 
 // Stores
@@ -268,13 +270,10 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              {/* Public Route for Payment Callback (handles auth restoration internally if needed) */}
               <Route
                 path="/payment/callback"
-                element={
-                  <ProtectedRoute>
-                    <PaymentCallbackPage />
-                  </ProtectedRoute>
-                }
+                element={<PaymentCallbackPage />}
               />
             </Route>
 
@@ -326,6 +325,16 @@ const App: React.FC = () => {
                   <ProtectedRoute>
                     <FarmerRoute>
                       <EditProductPage />
+                    </FarmerRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/farmer/orders/:id"
+                element={
+                  <ProtectedRoute>
+                    <FarmerRoute>
+                      <FarmerOrderDetailPage />
                     </FarmerRoute>
                   </ProtectedRoute>
                 }
@@ -420,6 +429,16 @@ const App: React.FC = () => {
                   <ProtectedRoute>
                     <AdminRoute>
                       <AdminSettingsPage />
+                    </AdminRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/knowledge"
+                element={
+                  <ProtectedRoute>
+                    <AdminRoute>
+                      <AdminKnowledgePage />
                     </AdminRoute>
                   </ProtectedRoute>
                 }
