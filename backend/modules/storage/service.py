@@ -52,7 +52,19 @@ class StorageService:
             self.bucket_name = settings.GCS_BUCKET_NAME
             self.bucket = self.gcs_client.bucket(self.bucket_name)
             logger.info(f"✅ Using Google Cloud Storage: {self.bucket_name}")
-        
+
+        elif self.storage_type == "backblaze":
+            # Initialize Backblaze B2 client (S3-compatible)
+            self.b2_client = boto3.client(
+                's3',
+                endpoint_url=settings.BACKBLAZE_ENDPOINT,
+                aws_access_key_id=settings.BACKBLAZE_KEY_ID,
+                aws_secret_access_key=settings.BACKBLAZE_APP_KEY
+            )
+            self.b2_bucket = settings.BACKBLAZE_BUCKET_NAME
+            self.b2_endpoint = settings.BACKBLAZE_ENDPOINT
+            logger.info(f"✅ Using Backblaze B2: {self.b2_bucket}")
+
         else:
             raise ValueError(f"Invalid STORAGE_TYPE: {self.storage_type}")
     
@@ -93,8 +105,10 @@ class StorageService:
             return self._save_local(contents, file_path)
         elif self.storage_type == "spaces":
             return self._save_spaces(contents, file_path)
-        else:
+        elif self.storage_type == "gcs":
             return self._save_gcs(contents, file_path, "image/jpeg")
+        else:  # backblaze
+            return self._save_backblaze(contents, file_path, "image/jpeg")
     
     
     def _optimize_image(self, image_bytes: bytes) -> bytes:
@@ -172,12 +186,35 @@ class StorageService:
             
             # Return public URL
             return blob.public_url
-            
+
         except Exception as e:
             logger.error(f"GCS upload failed: {e}")
             raise HTTPException(500, "File upload failed")
-    
-    
+
+
+    def _save_backblaze(self, contents: bytes, file_path: str, content_type: str) -> str:
+        """Save file to Backblaze B2 (S3-compatible)"""
+        try:
+            self.b2_client.put_object(
+                Bucket=self.b2_bucket,
+                Key=file_path,
+                Body=contents,
+                ContentType=content_type,
+                CacheControl='max-age=31536000'
+            )
+
+            # Return public URL
+            # Backblaze B2 public URL format: https://f004.backblazeb2.com/file/{bucket-name}/{file-path}
+            # Or using S3-compatible: https://{bucket}.s3.{region}.backblazeb2.com/{file-path}
+            # Extract region from endpoint
+            endpoint = self.b2_endpoint.replace("https://s3.", "").replace(".backblazeb2.com", "")
+            return f"https://{self.b2_bucket}.s3.{endpoint}.backblazeb2.com/{file_path}"
+
+        except Exception as e:
+            logger.error(f"Backblaze B2 upload failed: {e}")
+            raise HTTPException(500, "File upload failed")
+
+
     async def upload_voice_note(self, file: UploadFile) -> str:
         """Upload voice note"""
         if file.content_type not in ['audio/mpeg', 'audio/mp3', 'audio/wav']:
@@ -191,8 +228,10 @@ class StorageService:
             return self._save_local(contents, file_path)
         elif self.storage_type == "spaces":
             return self._save_spaces(contents, file_path)
-        else:
+        elif self.storage_type == "gcs":
             return self._save_gcs(contents, file_path, "audio/mpeg")
+        else:  # backblaze
+            return self._save_backblaze(contents, file_path, "audio/mpeg")
 
 
     async def upload_file(
@@ -226,8 +265,10 @@ class StorageService:
             url = self._save_local(file_bytes, file_path)
         elif self.storage_type == "spaces":
             url = self._save_spaces_generic(file_bytes, file_path, content_type)
-        else:
+        elif self.storage_type == "gcs":
             url = self._save_gcs(file_bytes, file_path, content_type)
+        else:  # backblaze
+            url = self._save_backblaze(file_bytes, file_path, content_type)
 
         return {
             "url": url,
@@ -310,11 +351,26 @@ class StorageService:
                 # This is a bit brittle, better to store the path or use a robust parser
                 # Assuming folder/filename is at the end
                 blob_name = '/'.join(parts[-2:])
-                
+
                 blob = self.bucket.blob(blob_name)
                 blob.delete()
             except Exception as e:
                 logger.warning(f"Failed to delete GCS file {file_url}: {e}")
+
+        elif self.storage_type == "backblaze":
+            # Extract key from URL
+            # URL format: https://{bucket}.s3.{region}.backblazeb2.com/{folder}/{filename}
+            try:
+                parts = file_url.split('/')
+                # Get last 2 parts (folder/filename)
+                key = '/'.join(parts[-2:])
+
+                self.b2_client.delete_object(
+                    Bucket=self.b2_bucket,
+                    Key=key
+                )
+            except Exception as e:
+                logger.warning(f"Failed to delete Backblaze file {file_url}: {e}")
 
 
 # Singleton instance

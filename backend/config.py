@@ -49,6 +49,12 @@ class Settings(BaseSettings):
 
     # Google Cloud Storage
     GCS_BUCKET_NAME: Optional[str] = None
+
+    # Backblaze B2 Storage
+    BACKBLAZE_KEY_ID: Optional[str] = None
+    BACKBLAZE_APP_KEY: Optional[str] = None
+    BACKBLAZE_BUCKET_NAME: Optional[str] = None
+    BACKBLAZE_ENDPOINT: str = "https://s3.eu-central-003.backblazeb2.com"  # Default endpoint
     
     # JWT
     JWT_SECRET_KEY: Optional[str] = None
