@@ -30,4 +30,8 @@ EXPOSE 8080
 # Run the application
 # Use gunicorn with uvicorn workers for production
 # Cloud Run/Render expects the app to listen on $PORT (default 8080)
-CMD ["sh", "-c", "gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080}"]
+# Settings optimized for Render free tier:
+#   - 1 worker to reduce memory usage
+#   - 120s timeout to allow for slow startups
+#   - preload to share memory between workers
+CMD ["sh", "-c", "alembic upgrade head && gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --timeout 120 --preload"]

@@ -276,11 +276,20 @@ def seed_products(db: Session, users: dict):
         filename = PRODUCT_IMAGES.get(key)
         if not filename:
             return None
-        
+
         # Check storage type from settings
         if settings.STORAGE_TYPE == "gcs":
             # Return GCS Public URL
-            return f"https://storage.googleapis.com/{settings.GCS_BUCKET_NAME}/uploads/products/{filename}"
+            return f"https://storage.googleapis.com/{settings.GCS_BUCKET_NAME}/products/{filename}"
+        elif settings.STORAGE_TYPE == "backblaze":
+            # Return Backblaze B2 Public URL
+            # Extract region from endpoint (e.g., "eu-central-003" from "https://s3.eu-central-003.backblazeb2.com")
+            endpoint = settings.BACKBLAZE_ENDPOINT.replace("https://s3.", "").replace(".backblazeb2.com", "")
+            return f"https://{settings.BACKBLAZE_BUCKET_NAME}.s3.{endpoint}.backblazeb2.com/products/{filename}"
+        elif settings.STORAGE_TYPE == "spaces":
+            # Return DO Spaces URL
+            cdn_url = settings.SPACES_CDN_URL or settings.SPACES_ENDPOINT
+            return f"{cdn_url}/products/{filename}"
         else:
             # Return local path
             return f"/uploads/products/{filename}"
