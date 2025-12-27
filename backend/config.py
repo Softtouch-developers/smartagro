@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     MONGODB_URI: Optional[str] = None
     PROD_MONGODB_URI: Optional[str] = None
     REDIS_URL: Optional[str] = None
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
 
     # External APIs
     PAYSTACK_SECRET_KEY: Optional[str] = None
@@ -143,14 +145,13 @@ def get_paystack_callback_url() -> str:
     """Get Paystack callback URL based on environment"""
     if settings.PAYSTACK_CALLBACK_URL:
         return settings.PAYSTACK_CALLBACK_URL
-
+ 
     if is_production():
-        # In production, use your DigitalOcean App Platform URL
-        # Example: https://smartagro-backend-xxxxx.ondigitalocean.app/api/v1/escrow/callback
-        return "https://your-production-url.ondigitalocean.app/api/v1/escrow/callback"
+        # In production, use the configured frontend URL
+        return f"{settings.FRONTEND_URL}/payment/callback"
     else:
         # In development, use localhost
-        return "http://localhost:8000/api/v1/escrow/callback"
+        return "http://localhost:3000/payment/callback"
 
 
 def get_cors_origins() -> list:

@@ -29,13 +29,30 @@ async def initialize_payment(
 ):
     """Initialize payment for an order"""
     try:
-        result = await EscrowService.initialize_payment(db, request.order_id, current_user.id)
+        result = await EscrowService.initialize_payment(db, request.order_id, current_user.id, request.callback_url)
         return InitializePaymentResponse(**result)
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Initialize payment error: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to initialize payment")
+
+
+
+@router.get("/verify", response_model=dict)
+async def verify_payment(
+    reference: str,
+    db: Session = Depends(get_db)
+):
+    """Verify payment status"""
+    try:
+        result = await EscrowService.verify_payment(db, reference)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Verify payment error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to verify payment")
 
 
 @router.get("/{escrow_id}", response_model=EscrowResponse)

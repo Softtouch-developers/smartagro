@@ -21,7 +21,7 @@ class EscrowService:
     """Service for escrow and payment operations"""
 
     @staticmethod
-    async def initialize_payment(db: Session, order_id: int, buyer_id: int) -> Dict[str, Any]:
+    async def initialize_payment(db: Session, order_id: int, buyer_id: int, callback_url: str = None) -> Dict[str, Any]:
         """Initialize payment for an order"""
         order = db.query(Order).filter(Order.id == order_id).first()
 
@@ -36,11 +36,12 @@ class EscrowService:
 
         buyer = db.query(User).filter(User.id == buyer_id).first()
         reference = f"ESC-{order.id}-{uuid.uuid4().hex[:8]}"
-
+        
         result = await paystack_client.initialize_transaction(
             email=buyer.email,
-            amount=float(order.total_amount),
+            amount=float(1.0),#float(order.total_amount),
             reference=reference,
+            callback_url=callback_url,
             metadata={"order_id": order.id, "buyer_id": buyer_id}
         )
 
@@ -59,6 +60,103 @@ class EscrowService:
             }
         else:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result.get("error"))
+
+    @staticmethod
+    async def verify_payment(db: Session, reference: str) -> Dict[str, Any]:
+        """Verify payment and update order status"""
+        # Check if escrow already exists
+        existing_escrow = db.query(EscrowTransaction).filter(EscrowTransaction.paystack_reference == reference).first()
+        if existing_escrow:
+            return {
+                "success": True,
+                "status": "success",
+                "message": "Payment already verified",
+                "escrow": existing_escrow
+            }
+
+        # Verify with Paystack
+        verification = await paystack_client.verify_transaction(reference)
+
+        if not verification["success"]:
+            return {
+                "success": False,
+                "status": "failed",
+                "message": verification.get("error", "Verification failed")
+            }
+
+        if verification["status"] != "success":
+            return {
+                "success": False,
+                "status": verification["status"],
+                "message": f"Payment status: {verification['status']}"
+            }
+
+        # Process successful payment
+        metadata = verification.get("metadata", {})
+        order_id = metadata.get("order_id")
+
+        if not order_id:
+            # Try to find order by reference if metadata is missing (fallback)
+            order = db.query(Order).filter(Order.paystack_reference == reference).first()
+        else:
+            order = db.query(Order).filter(Order.id == order_id).first()
+
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found for this payment")
+
+        # Create escrow if not exists
+        amount = verification["amount"]
+        platform_fee = float(order.platform_fee)
+        seller_payout = float(order.subtotal)
+
+        escrow = EscrowTransaction(
+            order_id=order.id,
+            buyer_id=order.buyer_id,
+            seller_id=order.seller_id,
+            amount=Decimal(str(amount)),
+            platform_fee=Decimal(str(platform_fee)),
+            seller_payout=Decimal(str(seller_payout)),
+            status=EscrowStatus.HELD,
+            paystack_reference=reference,
+            auto_release_date=datetime.utcnow() + timedelta(days=7)
+        )
+
+        order.status = OrderStatus.PAID
+        order.payment_status = PaymentStatus.PAID
+        order.paystack_reference = reference # Ensure reference is saved
+
+        db.add(escrow)
+        db.commit()
+        db.refresh(escrow)
+
+        # Send notifications
+        try:
+            seller = db.query(User).filter(User.id == order.seller_id).first()
+            buyer = db.query(User).filter(User.id == order.buyer_id).first()
+
+            if seller:
+                await mnotify_client.send_sms(
+                    "0545142039", # seller.phone_number,
+                    f"New order #{order.order_number} paid! Amount: GH₵{seller_payout:.2f}. Please ship the order."
+                )
+
+            if buyer:
+                await mnotify_client.send_sms(
+                    buyer.phone_number,
+                    f"Payment successful for order #{order.order_number}. Total: GH₵{amount:.2f}. Seller will ship soon."
+                )
+        except Exception as e:
+            logger.error(f"Failed to send notifications: {e}")
+
+        # Import schema here to avoid circular imports
+        from modules.escrow.schemas import EscrowResponse
+        
+        return {
+            "success": True,
+            "status": "success",
+            "message": "Payment verified successfully",
+            "escrow": EscrowResponse.from_orm(escrow).dict()
+        }
 
     @staticmethod
     async def process_payment_webhook(db: Session, reference: str, amount: float, customer_email: str, metadata: Dict):
@@ -96,7 +194,7 @@ class EscrowService:
 
         if seller:
             await mnotify_client.send_sms(
-                seller.phone_number,
+                "0545142039",#seller.phone_number,
                 f"New order #{order.order_number} paid! Amount: GH₵{seller_payout:.2f}. Please ship the order."
             )
 
@@ -126,7 +224,7 @@ class EscrowService:
         if not seller.paystack_recipient_code:
             recipient_result = await paystack_client.create_transfer_recipient(
                 account_name=seller.account_name,
-                account_number=seller.account_number,
+                account_number="0545142039",#seller.account_number,
                 bank_code=seller.bank_code
             )
 
@@ -154,7 +252,7 @@ class EscrowService:
             db.commit()
 
             await mnotify_client.send_sms(
-                seller.phone_number,
+                "0545142039",#seller.phone_number,
                 f"Payment released! GH₵{float(escrow.seller_payout):.2f} transferred to your account."
             )
 

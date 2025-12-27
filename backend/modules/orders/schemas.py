@@ -92,7 +92,7 @@ class DeliverOrderRequest(BaseModel):
 
 class CancelOrderRequest(BaseModel):
     """Cancel order request"""
-    reason: str = Field(..., min_length=10, max_length=500)
+    reason: Optional[str] = Field(None, max_length=500)
 
     class Config:
         json_schema_extra = {
@@ -106,10 +106,12 @@ class CancelOrderRequest(BaseModel):
 
 class OrderItemResponse(BaseModel):
     """Order item details"""
-    product_id: int
-    product_name: str
+    id: int
+    product_id: Optional[int]
+    product_name_snapshot: str
+    unit_of_measure_snapshot: Optional[str]
+    product_image_snapshot: Optional[str] = None
     quantity: float
-    unit_of_measure: str
     unit_price: float
     subtotal: float
 
@@ -172,6 +174,17 @@ class OrderResponse(BaseModel):
     buyer_name: Optional[str] = None
     buyer_phone: Optional[str] = None
 
+    # Pickup confirmation (for PICKUP delivery method)
+    pickup_confirmed_by_farmer: bool = False
+    pickup_confirmed_by_buyer: bool = False
+    pickup_confirmed_at: Optional[datetime] = None
+
+    # Order items
+    items: Optional[List[OrderItemResponse]] = None
+
+    # Buyer relationship (for admin view)
+    buyer: Optional[dict] = None
+
     # Timestamps
     created_at: datetime
     updated_at: Optional[datetime]
@@ -194,9 +207,9 @@ class OrderDetailResponse(BaseModel):
     """Detailed order response"""
     success: bool = True
     order: OrderResponse
-    product: dict  # Product details
-    seller: dict  # Seller details
-    buyer: dict  # Buyer details
+    product: Optional[dict] = None  # Product details
+    seller: Optional[dict] = None  # Seller details
+    buyer: Optional[dict] = None  # Buyer details
 
 
 class CreateOrderResponse(BaseModel):

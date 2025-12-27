@@ -5,7 +5,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, Session
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+
 from datetime import datetime, timedelta
 import enum
 
@@ -280,6 +281,9 @@ class Product(Base):
     expected_shelf_life_days = Column(Integer, nullable=True)
     expiry_alert_days = Column(Integer, default=3, nullable=False)  # Alert when X days before expiry
     
+    # Search Vector
+    search_vector = Column(TSVECTOR, nullable=True)
+    
     # Location (Farm location, may differ from seller's address)
     farm_location = Column(String(255), nullable=True)
     region = Column(String(50), nullable=True)
@@ -318,6 +322,7 @@ class Product(Base):
         Index('idx_product_category_status', 'category', 'status'),
         Index('idx_product_seller_status', 'seller_id', 'status'),
         Index('idx_product_created', 'created_at'),
+        Index('idx_product_search_vector', 'search_vector', postgresql_using='gin'),
     )
 
 
@@ -354,7 +359,12 @@ class Order(Base):
     actual_delivery_date = Column(Date, nullable=True)
     shipped_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)
-    
+
+    # Pickup Confirmation (for PICKUP delivery method)
+    pickup_confirmed_by_farmer = Column(Boolean, default=False, nullable=False)
+    pickup_confirmed_by_buyer = Column(Boolean, default=False, nullable=False)
+    pickup_confirmed_at = Column(DateTime, nullable=True)
+
     # Tracking & Notes
     tracking_number = Column(String(100), nullable=True)
     carrier = Column(String(100), nullable=True)  # Delivery carrier/logistics provider

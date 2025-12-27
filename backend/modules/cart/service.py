@@ -115,7 +115,7 @@ class CartService:
         if cart:
             # Check if same farmer
             if cart.farmer_id != product.seller_id:
-                raise DifferentFarmerError(
+                raise ValueError(
                     "Your cart contains items from a different farmer. "
                     "Please checkout or clear your cart first to buy from another farmer."
                 )

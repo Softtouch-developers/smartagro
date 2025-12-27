@@ -517,3 +517,122 @@ async def search_knowledge(
     except Exception as e:
         logger.error(f"Search error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Search failed")
+
+
+@router.delete("/knowledge/documents/{document_id}")
+async def delete_knowledge_document(
+    document_id: str,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Delete a knowledge document (Admin only)"""
+    try:
+        success = KnowledgeService.delete_document(document_id, db)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return {"message": f"Document {document_id} deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete document error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to delete document")
+
+
+@router.post("/knowledge/upload")
+async def upload_knowledge_document(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a single knowledge document (Admin only)
+
+    Accepts markdown (.md) or text (.txt) files.
+    The document will be processed, chunked, and indexed.
+    """
+    import tempfile
+    import os
+
+    # Validate file type
+    allowed_extensions = {'.md', '.txt', '.markdown'}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        )
+
+    try:
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        # Process the document
+        result = KnowledgeService.process_document(
+            filepath=tmp_path,
+            db=db,
+            force_reindex=True
+        )
+
+        # Clean up temp file
+        os.unlink(tmp_path)
+
+        return {
+            "message": "Document uploaded and indexed successfully",
+            "filename": file.filename,
+            "document_id": result.get("document_id"),
+            "chunks_created": result.get("chunks_created", 0),
+            "document_type": result.get("document_type"),
+            "topics": result.get("topics", []),
+            "crops": result.get("crops", [])
+        }
+
+    except Exception as e:
+        logger.error(f"Upload document error: {e}", exc_info=True)
+        # Clean up temp file if it exists
+        if 'tmp_path' in locals() and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
+
+
+@router.get("/knowledge/stats")
+async def get_knowledge_stats(
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Get knowledge base statistics (Admin only)"""
+    from models import KnowledgeEmbedding
+    from modules.agent.mongo_connection import get_mongo_db
+
+    try:
+        mongo_db = get_mongo_db()
+
+        # MongoDB stats
+        total_documents = mongo_db['knowledge_documents'].count_documents({})
+
+        # Document type breakdown
+        pipeline = [
+            {"$group": {"_id": "$document_type", "count": {"$sum": 1}}}
+        ]
+        type_counts = list(mongo_db['knowledge_documents'].aggregate(pipeline))
+        by_type = {item["_id"]: item["count"] for item in type_counts if item["_id"]}
+
+        # PostgreSQL stats - total chunks/embeddings
+        total_chunks = db.query(KnowledgeEmbedding).count()
+
+        return {
+            "total_documents": total_documents,
+            "total_chunks": total_chunks,
+            "by_document_type": by_type,
+            "avg_chunks_per_doc": round(total_chunks / total_documents, 1) if total_documents > 0 else 0
+        }
+
+    except Exception as e:
+        logger.error(f"Get stats error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get knowledge base stats")

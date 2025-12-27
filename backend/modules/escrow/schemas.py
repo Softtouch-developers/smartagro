@@ -9,6 +9,7 @@ from datetime import datetime
 class InitializePaymentRequest(BaseModel):
     """Initialize payment request"""
     order_id: int
+    callback_url: Optional[str] = None
 
     class Config:
         json_schema_extra = {"example": {"order_id": 1}}

@@ -391,6 +391,223 @@ async def get_dashboard_stats(
         )
 
 
+@router.get("/orders")
+async def list_all_orders(
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    List all orders (Admin only)
+    """
+    try:
+        from modules.orders.schemas import OrderResponse, OrderListResponse
+        import math
+        
+        query = db.query(Order)
+
+        if status:
+            query = query.filter(Order.status == status)
+
+        total = query.count()
+        
+        # Pagination
+        offset = (page - 1) * page_size
+        orders = query.order_by(Order.created_at.desc()).offset(offset).limit(page_size).all()
+        
+        total_pages = math.ceil(total / page_size) if total > 0 else 1
+        
+        return OrderListResponse(
+            success=True,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+            orders=[OrderResponse.from_orm(o) for o in orders]
+        )
+
+    except Exception as e:
+        logger.error(f"List all orders error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve orders"
+        )
+
+
+        # Transaction volume this month
+        volume_month = db.query(func.sum(EscrowTransaction.amount)).filter(
+            EscrowTransaction.created_at >= month_ago
+        ).scalar() or Decimal('0')
+
+        # Total platform fees collected
+        total_fees = db.query(func.sum(EscrowTransaction.platform_fee)).scalar() or Decimal('0')
+
+        # Escrow balance (money currently held)
+        escrow_balance = db.query(func.sum(EscrowTransaction.amount)).filter(
+            EscrowTransaction.status == EscrowStatus.HELD
+        ).scalar() or Decimal('0')
+
+        # Pending payouts to sellers
+        pending_payouts = db.query(func.sum(EscrowTransaction.seller_payout)).filter(
+            EscrowTransaction.status == EscrowStatus.HELD
+        ).scalar() or Decimal('0')
+
+        # ==================== ESCROW METRICS ====================
+        total_escrow = db.query(func.count(EscrowTransaction.id)).scalar()
+
+        escrow_by_status = db.query(
+            EscrowTransaction.status,
+            func.count(EscrowTransaction.id).label('count')
+        ).group_by(EscrowTransaction.status).all()
+        escrow_status_breakdown = {status.value: count for status, count in escrow_by_status}
+
+        # Auto-release due soon (next 24 hours)
+        tomorrow = datetime.utcnow() + timedelta(days=1)
+        auto_release_soon = db.query(func.count(EscrowTransaction.id)).filter(
+            and_(
+                EscrowTransaction.status == EscrowStatus.HELD,
+                EscrowTransaction.auto_release_date <= tomorrow,
+                EscrowTransaction.auto_release_date >= datetime.utcnow()
+            )
+        ).scalar()
+
+        # ==================== DISPUTE METRICS ====================
+        total_disputes = db.query(func.count(Dispute.id)).scalar()
+        open_disputes = db.query(func.count(Dispute.id)).filter(
+            Dispute.status.in_([DisputeStatus.OPEN, DisputeStatus.UNDER_REVIEW])
+        ).scalar()
+        resolved_disputes = db.query(func.count(Dispute.id)).filter(
+            Dispute.status == DisputeStatus.RESOLVED
+        ).scalar()
+
+        # Average resolution time (for resolved disputes)
+        avg_resolution_time = db.query(
+            func.avg(
+                func.extract('epoch', Dispute.resolved_at - Dispute.created_at) / 86400
+            )
+        ).filter(Dispute.resolved_at.isnot(None)).scalar()
+
+        # ==================== ENGAGEMENT METRICS ====================
+        mongo_db = get_mongo_db()
+
+        # Chat metrics
+        total_conversations = mongo_db['conversations'].count_documents({})
+        total_messages = mongo_db['chat_messages'].count_documents({})
+
+        # Agent metrics
+        total_agent_conversations = mongo_db['agent_conversations'].count_documents({})
+
+        # Calculate average messages per conversation
+        avg_messages_per_conv = total_messages / total_conversations if total_conversations > 0 else 0
+
+        # ==================== COMPILE RESPONSE ====================
+        return {
+            "user_metrics": {
+                "total_users": total_users,
+                "farmers": farmers_count,
+                "buyers": buyers_count,
+                "admins": total_users - farmers_count - buyers_count,
+                "verified_users": verified_users,
+                "active_users": active_users,
+                "new_users_this_week": new_users_week,
+                "new_users_this_month": new_users_month
+            },
+            "product_metrics": {
+                "total_products": total_products,
+                "active_products": active_products,
+                "featured_products": featured_products,
+                "by_category": category_breakdown
+            },
+            "order_metrics": {
+                "total_orders": total_orders,
+                "orders_today": orders_today,
+                "orders_this_week": orders_week,
+                "orders_this_month": orders_month,
+                "average_order_value": float(avg_order_value),
+                "by_status": status_breakdown
+            },
+            "financial_metrics": {
+                "total_transaction_volume": float(total_volume),
+                "volume_this_month": float(volume_month),
+                "total_platform_fees": float(total_fees),
+                "escrow_balance": float(escrow_balance),
+                "pending_payouts": float(pending_payouts)
+            },
+            "escrow_metrics": {
+                "total_escrow_transactions": total_escrow,
+                "by_status": escrow_status_breakdown,
+                "auto_release_due_soon": auto_release_soon
+            },
+            "dispute_metrics": {
+                "total_disputes": total_disputes,
+                "open_disputes": open_disputes,
+                "resolved_disputes": resolved_disputes,
+                "average_resolution_days": round(avg_resolution_time or 0, 1)
+            },
+            "engagement_metrics": {
+                "total_conversations": total_conversations,
+                "total_chat_messages": total_messages,
+                "agent_conversations": total_agent_conversations,
+                "avg_messages_per_conversation": round(avg_messages_per_conv, 1)
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Dashboard stats error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve dashboard statistics"
+        )
+
+
+
+@router.get("/orders")
+async def list_all_orders(
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    List all orders (Admin only)
+    """
+    try:
+        from modules.orders.schemas import OrderResponse, OrderListResponse
+        import math
+        
+        query = db.query(Order)
+
+        if status:
+            query = query.filter(Order.status == status)
+
+        total = query.count()
+        
+        # Pagination
+        offset = (page - 1) * page_size
+        orders = query.order_by(Order.created_at.desc()).offset(offset).limit(page_size).all()
+        
+        total_pages = math.ceil(total / page_size) if total > 0 else 1
+        
+        return OrderListResponse(
+            success=True,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+            orders=[OrderResponse.from_orm(o) for o in orders]
+        )
+
+    except Exception as e:
+        logger.error(f"List all orders error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve orders"
+        )
+
+
 # ==================== USER MANAGEMENT ====================
 
 class SuspendUserRequest(BaseModel):

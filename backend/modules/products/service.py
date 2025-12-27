@@ -66,7 +66,8 @@ class ProductService:
             district=product_data.district or seller.district,
             is_organic=product_data.is_organic,
             variety=product_data.variety,
-            status=ProductStatus.AVAILABLE
+            status=ProductStatus.AVAILABLE,
+            search_vector=func.to_tsvector('english', f"{product_data.product_name} {product_data.description} {product_data.variety or ''} {product_data.category.value}")
         )
 
         db.add(product)
@@ -144,6 +145,10 @@ class ProductService:
         for field, value in update_dict.items():
             if hasattr(product, field):
                 setattr(product, field, value)
+
+        # Update search vector
+        search_text = f"{product.product_name} {product.description or ''} {product.variety or ''} {product.category.value}"
+        product.search_vector = func.to_tsvector('english', search_text)
 
         product.updated_at = datetime.utcnow()
         db.commit()
@@ -282,14 +287,11 @@ class ProductService:
         return db.query(Product).filter(
             and_(
                 Product.status == ProductStatus.AVAILABLE,
-                or_(
-                    Product.product_name.ilike(search_pattern),
-                    Product.description.ilike(search_pattern),
-                    Product.variety.ilike(search_pattern),
-                    cast(Product.category, String).ilike(search_pattern)
-                )
+                Product.search_vector.op('@@')(func.plainto_tsquery('english', search_term))
             )
-        ).order_by(desc(Product.created_at)).limit(limit).all()
+        ).order_by(
+            desc(func.ts_rank(Product.search_vector, func.plainto_tsquery('english', search_term)))
+        ).limit(limit).all()
 
     @staticmethod
     def update_product_quantity(

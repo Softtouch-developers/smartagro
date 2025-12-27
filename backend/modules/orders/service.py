@@ -2,7 +2,7 @@
 Order Management Service
 Business logic for order operations
 """
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_, desc
 from fastapi import HTTPException, status
 from typing import Optional, Dict, Any, List, Tuple
@@ -152,8 +152,12 @@ class OrderService:
 
     @staticmethod
     def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
-        """Get order by ID"""
-        return db.query(Order).filter(Order.id == order_id).first()
+        """Get order by ID with buyer and seller relationships loaded"""
+        return db.query(Order).options(
+            joinedload(Order.buyer),
+            joinedload(Order.seller),
+            joinedload(Order.product)
+        ).filter(Order.id == order_id).first()
 
     @staticmethod
     def get_order_with_details(db: Session, order_id: int) -> Tuple[Optional[Order], Optional[Dict], Optional[Dict], Optional[Dict]]:
@@ -204,12 +208,12 @@ class OrderService:
         page_size: int = 20
     ) -> Tuple[List[Order], int]:
         """
-        List orders for a user (buyer or seller view)
+        List orders for a user (buyer, seller, or admin view)
 
         Args:
             db: Database session
             user_id: User ID
-            user_type: BUYER or FARMER
+            user_type: BUYER, FARMER, or ADMIN
             status: Filter by status
             page: Page number
             page_size: Items per page
@@ -217,17 +221,36 @@ class OrderService:
         Returns:
             Tuple of (orders, total_count)
         """
-        if user_type == "BUYER":
-            query = db.query(Order).filter(Order.buyer_id == user_id)
+        # Eager load buyer and seller relationships
+        query = db.query(Order).options(
+            joinedload(Order.buyer),
+            joinedload(Order.seller),
+            joinedload(Order.items)
+        )
+
+        if user_type == "ADMIN":
+            # Admins see all orders
+            pass
+        elif user_type == "BUYER":
+            query = query.filter(Order.buyer_id == user_id)
         else:  # FARMER
-            query = db.query(Order).filter(Order.seller_id == user_id)
+            query = query.filter(Order.seller_id == user_id)
 
         # Filter by status
         if status:
             query = query.filter(Order.status == status)
 
-        # Get total count
-        total = query.count()
+        # Get total count (need a separate query without eager loading for count)
+        count_query = db.query(Order)
+        if user_type == "ADMIN":
+            pass
+        elif user_type == "BUYER":
+            count_query = count_query.filter(Order.buyer_id == user_id)
+        else:
+            count_query = count_query.filter(Order.seller_id == user_id)
+        if status:
+            count_query = count_query.filter(Order.status == status)
+        total = count_query.count()
 
         # Pagination
         offset = (page - 1) * page_size
@@ -287,7 +310,7 @@ class OrderService:
         order.status = OrderStatus.SHIPPED
         order.tracking_number = ship_data.tracking_number
         order.carrier = ship_data.carrier
-        order.estimated_delivery_date = ship_data.estimated_delivery_date
+        order.expected_delivery_date = ship_data.estimated_delivery_date
         order.seller_notes = ship_data.seller_notes
         order.shipped_at = datetime.utcnow()
         order.updated_at = datetime.utcnow()
@@ -407,7 +430,7 @@ class OrderService:
 
         # Update order
         order.status = OrderStatus.CANCELLED
-        order.cancellation_reason = cancel_data.reason
+        order.cancelled_reason = cancel_data.reason
         order.cancelled_by = user_id
         order.cancelled_at = datetime.utcnow()
         order.updated_at = datetime.utcnow()
@@ -416,4 +439,152 @@ class OrderService:
         db.refresh(order)
 
         logger.info(f"Order {order.order_number} cancelled by user {user_id}")
+        return order
+
+    @staticmethod
+    def update_order_status(
+        db: Session,
+        order_id: int,
+        seller_id: int,
+        new_status: OrderStatus
+    ) -> Order:
+        """
+        Update order status (for farmer to confirm/process orders)
+
+        Args:
+            db: Database session
+            order_id: Order ID
+            seller_id: Seller ID (must be order seller)
+            new_status: New order status
+
+        Returns:
+            Updated order
+        """
+        order = OrderService.get_order_by_id(db, order_id)
+
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+
+        # Verify seller owns this order
+        if order.seller_id != seller_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update your own orders"
+            )
+
+        # Define allowed transitions
+        allowed_transitions = {
+            OrderStatus.PAID: [OrderStatus.CONFIRMED],
+            OrderStatus.CONFIRMED: [OrderStatus.SHIPPED],
+        }
+
+        current_status = order.status
+        if current_status not in allowed_transitions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot update order with status: {current_status.value}"
+            )
+
+        if new_status not in allowed_transitions[current_status]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot transition from {current_status.value} to {new_status.value}"
+            )
+
+        # Update order
+        order.status = new_status
+        order.updated_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(order)
+
+        logger.info(f"Order {order.order_number} status updated to {new_status.value} by seller {seller_id}")
+        return order
+
+    @staticmethod
+    def confirm_pickup(
+        db: Session,
+        order_id: int,
+        user_id: int,
+        user_type: str
+    ) -> Order:
+        """
+        Confirm pickup for an order (for PICKUP delivery method)
+        Both farmer and buyer must confirm for the order to be marked as delivered.
+
+        Args:
+            db: Database session
+            order_id: Order ID
+            user_id: User ID (farmer or buyer)
+            user_type: 'FARMER' or 'BUYER'
+
+        Returns:
+            Updated order
+        """
+        order = OrderService.get_order_by_id(db, order_id)
+
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+
+        # Verify this is a pickup order
+        if order.delivery_method.value != 'PICKUP':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This endpoint is only for pickup orders"
+            )
+
+        # Verify order is in SHIPPED status (ready for pickup)
+        if order.status != OrderStatus.SHIPPED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot confirm pickup for order with status: {order.status.value}. Order must be ready for pickup."
+            )
+
+        # Verify user is either the buyer or seller
+        if user_type == 'FARMER':
+            if order.seller_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only confirm pickup for your own orders"
+                )
+            if order.pickup_confirmed_by_farmer:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="You have already confirmed pickup"
+                )
+            order.pickup_confirmed_by_farmer = True
+        else:  # BUYER
+            if order.buyer_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only confirm pickup for your own orders"
+                )
+            if order.pickup_confirmed_by_buyer:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="You have already confirmed pickup"
+                )
+            order.pickup_confirmed_by_buyer = True
+
+        order.updated_at = datetime.utcnow()
+
+        # If both have confirmed, mark as delivered
+        if order.pickup_confirmed_by_farmer and order.pickup_confirmed_by_buyer:
+            order.status = OrderStatus.DELIVERED
+            order.delivered_at = datetime.utcnow()
+            order.pickup_confirmed_at = datetime.utcnow()
+            logger.info(f"Order {order.order_number} pickup confirmed by both parties")
+        else:
+            confirmed_by = "farmer" if user_type == 'FARMER' else "buyer"
+            logger.info(f"Order {order.order_number} pickup confirmed by {confirmed_by}, waiting for other party")
+
+        db.commit()
+        db.refresh(order)
+
         return order
