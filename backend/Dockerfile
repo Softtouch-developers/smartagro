@@ -28,5 +28,6 @@ COPY . .
 EXPOSE 8080
 
 # Run the application
-# Cloud Run expects the app to listen on $PORT (default 8080)
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Use gunicorn with uvicorn workers for production
+# Cloud Run/Render expects the app to listen on $PORT (default 8080)
+CMD ["sh", "-c", "gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080}"]
