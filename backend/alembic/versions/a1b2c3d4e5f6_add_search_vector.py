@@ -16,23 +16,28 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
-    # Add column
-    op.add_column('products', sa.Column('search_vector', TSVECTOR(), nullable=True))
-    
-    # Create index
-    op.create_index('idx_product_search_vector', 'products', ['search_vector'], postgresql_using='gin')
-    
-    # Backfill data
-    # Using product_category_to_text function from previous migration
-    op.execute("""
-        UPDATE products
-        SET search_vector = to_tsvector('english', 
-            coalesce(product_name, '') || ' ' || 
-            coalesce(description, '') || ' ' || 
-            coalesce(variety, '') || ' ' || 
-            product_category_to_text(category)
-        )
-    """)
+    # Add column if it doesn't exist
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='products' AND column_name='search_vector'"
+    ))
+    if result.fetchone() is None:
+        op.add_column('products', sa.Column('search_vector', TSVECTOR(), nullable=True))
+
+        # Create index
+        op.create_index('idx_product_search_vector', 'products', ['search_vector'], postgresql_using='gin')
+
+        # Backfill data
+        op.execute("""
+            UPDATE products
+            SET search_vector = to_tsvector('english',
+                coalesce(product_name, '') || ' ' ||
+                coalesce(description, '') || ' ' ||
+                coalesce(variety, '') || ' ' ||
+                product_category_to_text(category)
+            )
+        """)
 
 def downgrade():
     op.drop_index('idx_product_search_vector', table_name='products')
