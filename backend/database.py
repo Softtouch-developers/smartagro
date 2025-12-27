@@ -18,8 +18,8 @@ DATABASE_URL = get_database_url()
 if DATABASE_URL:
     engine = create_engine(
         DATABASE_URL,
-        pool_size=5,
-        max_overflow=2,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
         pool_pre_ping=True,
         pool_recycle=3600,
         echo=settings.DEBUG
