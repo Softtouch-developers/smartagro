@@ -171,5 +171,8 @@ def get_cors_origins() -> list:
             "http://localhost:3001",
             "http://127.0.0.1:3000",
         ])
-    
+
+    # Log CORS origins for debugging
+    print(f"🔒 CORS Origins: {origins}")
+
     return origins

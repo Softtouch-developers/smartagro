@@ -119,7 +119,12 @@ if settings.STORAGE_TYPE == "local":
 if is_production():
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["smartagro-backend.ondigitalocean.app", "*.ondigitalocean.app", "*.run.app"]
+        allowed_hosts=[
+            "smartagro-backend.ondigitalocean.app",
+            "*.ondigitalocean.app",
+            "*.run.app",
+            "*.onrender.com",  # Render
+        ]
     )
 
 # Error handling middleware
