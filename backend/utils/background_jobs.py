@@ -5,7 +5,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 from database import SessionLocal
 from models import EscrowTransaction, EscrowStatus, OTPVerification
+from config import settings
 import logging
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,39 @@ def expire_old_carts():
         db.close()
 
 
+def keep_alive_ping():
+    """
+    Ping backend and frontend to prevent cold starts on free tier hosting.
+    Runs every 10 minutes.
+    """
+    logger.debug("Running keep-alive ping...")
+
+    # URLs to ping
+    urls_to_ping = []
+
+    # Backend health endpoint (self-ping)
+    backend_url = getattr(settings, 'BACKEND_URL', None)
+    if backend_url:
+        urls_to_ping.append(f"{backend_url}/health")
+
+    # Frontend URL
+    frontend_url = settings.FRONTEND_URL
+    if frontend_url and frontend_url != "http://localhost:3000":
+        urls_to_ping.append(frontend_url)
+
+    if not urls_to_ping:
+        logger.debug("No URLs configured for keep-alive ping")
+        return
+
+    for url in urls_to_ping:
+        try:
+            with httpx.Client(timeout=30) as client:
+                response = client.get(url)
+                logger.debug(f"✅ Ping {url}: {response.status_code}")
+        except Exception as e:
+            logger.warning(f"⚠️ Ping failed for {url}: {e}")
+
+
 def start_scheduler():
     """Start background jobs scheduler"""
 
@@ -118,6 +153,15 @@ def start_scheduler():
         'interval',
         hours=6,
         id='expire_carts',
+        replace_existing=True
+    )
+
+    # Keep-alive ping (every 10 minutes) to prevent cold starts
+    scheduler.add_job(
+        keep_alive_ping,
+        'interval',
+        minutes=10,
+        id='keep_alive_ping',
         replace_existing=True
     )
 

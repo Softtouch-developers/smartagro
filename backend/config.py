@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
+
+    # Backend URL (for self-ping to prevent cold starts)
+    BACKEND_URL: Optional[str] = None
     
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
