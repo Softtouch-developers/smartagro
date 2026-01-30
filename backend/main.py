@@ -68,9 +68,16 @@ async def lifespan(app: FastAPI):
         # Seed database if flag is set (development only)
         if settings.SEED_DATABASE and not is_production():
             from seed_data import seed_all
-            db = next(get_db())
-            seed_all(db)
-            logger.info("✅ Database seeded with test data")
+            db_gen = get_db()
+            db = next(db_gen)
+            try:
+                seed_all(db)
+                logger.info("✅ Database seeded with test data")
+            finally:
+                try:
+                    next(db_gen)
+                except StopIteration:
+                    pass
         
         logger.info(f"✅ {settings.APP_NAME} started successfully")
         
@@ -143,11 +150,18 @@ async def health_check():
     Health check endpoint for monitoring and DO App Platform
     """
     try:
-        # Check PostgreSQL
+        # Check PostgreSQL - use context manager to ensure connection is closed
         from sqlalchemy import text
-        db = next(get_db())
-        db.execute(text("SELECT 1"))
-        postgres_healthy = True
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            db.execute(text("SELECT 1"))
+            postgres_healthy = True
+        finally:
+            try:
+                next(db_gen)
+            except StopIteration:
+                pass
     except Exception as e:
         logger.error(f"PostgreSQL health check failed: {e}")
         postgres_healthy = False

@@ -21,8 +21,12 @@ if DATABASE_URL:
         pool_size=settings.DB_POOL_SIZE,
         max_overflow=settings.DB_MAX_OVERFLOW,
         pool_pre_ping=True,
-        pool_recycle=3600,
-        echo=settings.DEBUG
+        pool_recycle=300,  # Recycle connections every 5 mins (Aiven may drop idle connections)
+        pool_timeout=10,   # Fail fast if no connection available
+        echo=settings.DEBUG,
+        connect_args={
+            "connect_timeout": 25,  # Connection timeout in seconds
+        }
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
